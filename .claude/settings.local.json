@@ -1,9 +1,11 @@
 {
+  "model": "opus",
   "permissions": {
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(python e:/Ultralisk/hello.py)"
     ]
   }
 }

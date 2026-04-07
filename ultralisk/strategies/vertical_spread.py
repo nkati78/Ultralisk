@@ -1,0 +1,180 @@
+"""Vertical spread strategy - bull put spread or bear call spread."""
+
+from dataclasses import dataclass
+from enum import Enum
+
+from ultralisk.domain import Leg, OptionType, OptionsChain, Position, Trade
+
+
+class SpreadDirection(Enum):
+    BULL = "bull"  # bull put spread (credit put spread)
+    BEAR = "bear"  # bear call spread (credit call spread)
+
+
+@dataclass
+class VerticalSpread:
+    """Credit vertical spread.
+
+    BULL: Sell OTM put, buy further OTM put (bull put spread).
+    BEAR: Sell OTM call, buy further OTM call (bear call spread).
+    """
+
+    name: str = "VerticalSpread"
+    direction: SpreadDirection = SpreadDirection.BULL
+    short_delta: float = 0.25
+    spread_width: float = 5.0  # strike distance between legs
+    min_dte: int = 25
+    max_dte: int = 45
+    max_positions: int = 1
+    close_at_profit_pct: float = 0.50
+    close_at_loss_pct: float = 2.00
+    close_at_dte: int = 7
+
+    def scan(self, chain: OptionsChain, current_positions: list[Position]) -> list[Trade]:
+        active = [p for p in current_positions if p.strategy_name == self.name]
+        if len(active) >= self.max_positions:
+            return []
+
+        if self.direction == SpreadDirection.BULL:
+            return self._scan_bull_put(chain)
+        else:
+            return self._scan_bear_call(chain)
+
+    def _scan_bull_put(self, chain: OptionsChain) -> list[Trade]:
+        candidates = chain.filter(
+            option_type=OptionType.PUT,
+            min_dte=self.min_dte,
+            max_dte=self.max_dte,
+            max_strike=chain.underlying_price,
+        )
+        if not candidates:
+            return []
+
+        short_put = min(candidates, key=lambda c: abs(abs(c.delta or 0) - self.short_delta))
+        if short_put.delta is None:
+            return []
+
+        long_strike = short_put.strike - self.spread_width
+        long_put = self._find_closest(chain, OptionType.PUT, long_strike, short_put.expiration)
+        if long_put is None:
+            return []
+
+        legs = (
+            Leg(contract=short_put, quantity=-1),
+            Leg(contract=long_put, quantity=1),
+        )
+        net_credit = (short_put.mid - long_put.mid) * 100
+        if net_credit <= 0:
+            return []
+        return [Trade(legs=legs, trade_date=chain.quote_date, net_premium=net_credit)]
+
+    def _scan_bear_call(self, chain: OptionsChain) -> list[Trade]:
+        candidates = chain.filter(
+            option_type=OptionType.CALL,
+            min_dte=self.min_dte,
+            max_dte=self.max_dte,
+            min_strike=chain.underlying_price,
+        )
+        if not candidates:
+            return []
+
+        short_call = min(candidates, key=lambda c: abs((c.delta or 0) - self.short_delta))
+        if short_call.delta is None:
+            return []
+
+        long_strike = short_call.strike + self.spread_width
+        long_call = self._find_closest(chain, OptionType.CALL, long_strike, short_call.expiration)
+        if long_call is None:
+            return []
+
+        legs = (
+            Leg(contract=short_call, quantity=-1),
+            Leg(contract=long_call, quantity=1),
+        )
+        net_credit = (short_call.mid - long_call.mid) * 100
+        if net_credit <= 0:
+            return []
+        return [Trade(legs=legs, trade_date=chain.quote_date, net_premium=net_credit)]
+
+    def should_close(self, position: Position, chain: OptionsChain) -> Trade | None:
+        legs = position.entry_trade.legs
+        dte = min(leg.contract.dte(chain.quote_date) for leg in legs)
+
+        if dte <= 0:
+            return self._close_at_expiration(position, chain)
+
+        if dte <= self.close_at_dte:
+            return self._close_at_market(position, chain)
+
+        cost = self._cost_to_close(position, chain)
+        if cost is None:
+            return None
+
+        entry_credit = position.entry_trade.net_premium
+        if entry_credit <= 0:
+            return None
+
+        profit = entry_credit - cost
+        if profit / entry_credit >= self.close_at_profit_pct:
+            return self._close_at_market(position, chain)
+
+        if cost / entry_credit >= (1 + self.close_at_loss_pct):
+            return self._close_at_market(position, chain)
+
+        return None
+
+    def _close_at_market(self, position: Position, chain: OptionsChain) -> Trade:
+        close_legs = tuple(
+            Leg(contract=leg.contract, quantity=-leg.quantity)
+            for leg in position.entry_trade.legs
+        )
+        cost = self._cost_to_close(position, chain) or 0.0
+        return Trade(legs=close_legs, trade_date=chain.quote_date, net_premium=-cost)
+
+    def _close_at_expiration(self, position: Position, chain: OptionsChain) -> Trade:
+        close_legs = tuple(
+            Leg(contract=leg.contract, quantity=-leg.quantity)
+            for leg in position.entry_trade.legs
+        )
+        intrinsic = sum(
+            leg.quantity * self._intrinsic(leg.contract, chain.underlying_price) * 100
+            for leg in position.entry_trade.legs
+        )
+        return Trade(legs=close_legs, trade_date=chain.quote_date, net_premium=intrinsic)
+
+    def _cost_to_close(self, position: Position, chain: OptionsChain) -> float | None:
+        total = 0.0
+        for leg in position.entry_trade.legs:
+            current = self._find_current(leg.contract, chain)
+            if current is None:
+                return None
+            # For short legs we pay mid, for long legs we receive mid
+            if leg.quantity < 0:
+                total += current.mid * 100
+            else:
+                total -= current.mid * 100
+        return max(total, 0.0)
+
+    def _find_closest(self, chain, opt_type, target_strike, expiration):
+        candidates = [
+            c for c in chain.contracts
+            if c.option_type == opt_type and c.expiration == expiration
+        ]
+        if not candidates:
+            return None
+        return min(candidates, key=lambda c: abs(c.strike - target_strike))
+
+    def _find_current(self, contract, chain: OptionsChain):
+        for c in chain.contracts:
+            if (
+                c.strike == contract.strike
+                and c.expiration == contract.expiration
+                and c.option_type == contract.option_type
+            ):
+                return c
+        return None
+
+    def _intrinsic(self, contract, underlying_price: float) -> float:
+        if contract.option_type == OptionType.CALL:
+            return max(0.0, underlying_price - contract.strike)
+        return max(0.0, contract.strike - underlying_price)

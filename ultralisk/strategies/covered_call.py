@@ -1,0 +1,98 @@
+"""Covered call strategy - sell OTM calls against underlying holdings."""
+
+from dataclasses import dataclass
+
+from ultralisk.domain import Leg, OptionType, OptionsChain, Position, Trade
+
+
+@dataclass
+class CoveredCall:
+    """Sell OTM calls targeting a specific delta, within a DTE window.
+
+    Assumes the underlying shares are held externally (not tracked by the portfolio).
+    P&L reflects only the options premium collected/returned.
+    """
+
+    name: str = "CoveredCall"
+    delta_target: float = 0.30
+    min_dte: int = 25
+    max_dte: int = 45
+    max_positions: int = 1
+    close_at_profit_pct: float = 0.50  # close when 50% of max profit captured
+    close_at_dte: int = 7  # close when 7 DTE remaining
+
+    def scan(self, chain: OptionsChain, current_positions: list[Position]) -> list[Trade]:
+        active = [p for p in current_positions if p.strategy_name == self.name]
+        if len(active) >= self.max_positions:
+            return []
+
+        # Find OTM calls in the DTE window
+        candidates = chain.filter(
+            option_type=OptionType.CALL,
+            min_dte=self.min_dte,
+            max_dte=self.max_dte,
+            min_strike=chain.underlying_price,
+        )
+        if not candidates:
+            return []
+
+        # Pick the call closest to target delta
+        best = min(candidates, key=lambda c: abs((c.delta or 0) - self.delta_target))
+        if best.delta is None:
+            return []
+
+        leg = Leg(contract=best, quantity=-1)
+        premium = best.mid * 100  # credit received
+        return [Trade(legs=(leg,), trade_date=chain.quote_date, net_premium=premium)]
+
+    def should_close(self, position: Position, chain: OptionsChain) -> Trade | None:
+        entry_leg = position.entry_trade.legs[0]
+        contract = entry_leg.contract
+
+        # Find current price of the same contract
+        current = self._find_current(contract, chain)
+        dte = contract.dte(chain.quote_date)
+
+        # Close at expiration
+        if dte <= 0:
+            close_price = self._intrinsic(contract, chain.underlying_price) if current is None else current.mid
+            return self._closing_trade(entry_leg, chain, close_price)
+
+        # Close if DTE threshold reached
+        if dte <= self.close_at_dte and current is not None:
+            return self._closing_trade(entry_leg, chain, current.mid)
+
+        # Close if profit target reached
+        if current is not None:
+            entry_credit = position.entry_trade.net_premium
+            cost_to_close = current.mid * 100
+            profit_captured = entry_credit - cost_to_close
+            max_profit = entry_credit
+            if max_profit > 0 and profit_captured / max_profit >= self.close_at_profit_pct:
+                return self._closing_trade(entry_leg, chain, current.mid)
+
+        return None
+
+    def _closing_trade(self, entry_leg: Leg, chain: OptionsChain, price: float) -> Trade:
+        """Create a trade to close the position (buy back the short call)."""
+        close_leg = Leg(contract=entry_leg.contract, quantity=-entry_leg.quantity)
+        return Trade(
+            legs=(close_leg,),
+            trade_date=chain.quote_date,
+            net_premium=-price * 100,  # debit to close
+        )
+
+    def _find_current(self, contract, chain: OptionsChain):
+        for c in chain.contracts:
+            if (
+                c.strike == contract.strike
+                and c.expiration == contract.expiration
+                and c.option_type == contract.option_type
+            ):
+                return c
+        return None
+
+    def _intrinsic(self, contract, underlying_price: float) -> float:
+        if contract.option_type == OptionType.CALL:
+            return max(0.0, underlying_price - contract.strike)
+        return max(0.0, contract.strike - underlying_price)

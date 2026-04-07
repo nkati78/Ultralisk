@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "ultralisk"
+version = "0.1.0"
+description = "Options trading backtesting tool"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+viz = ["pandas", "matplotlib"]
+dev = ["pytest"]
+
+[project.scripts]
+ultralisk = "ultralisk.cli:main"

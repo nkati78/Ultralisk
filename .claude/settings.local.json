@@ -1,11 +1,20 @@
 {
-  "model": "opus",
   "permissions": {
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(python e:/Ultralisk/hello.py)"
+      "Bash(python e:/Ultralisk/hello.py)",
+      "Bash(python -c \"from ultralisk.domain import *; from ultralisk.data.provider import *; from ultralisk.data.csv_provider import *; from ultralisk.engine.portfolio import *; from ultralisk.analytics.metrics import *; from ultralisk.analytics.report import *; from ultralisk.strategies.base import *; from ultralisk.strategies.covered_call import *; from ultralisk.strategies.protective_put import *; from ultralisk.strategies.iron_condor import *; from ultralisk.strategies.straddle import *; from ultralisk.strategies.vertical_spread import *; from ultralisk.engine.backtester import *; from ultralisk.strategies import STRATEGY_REGISTRY; print\\('All imports OK'\\); print\\(f'Strategies: {list\\(STRATEGY_REGISTRY.keys\\(\\)\\)}'\\)\")",
+      "Bash(where python3:*)",
+      "Bash(where py:*)",
+      "Bash(python3 -c \"from ultralisk.domain import *; from ultralisk.data.provider import *; from ultralisk.data.csv_provider import *; from ultralisk.engine.portfolio import *; from ultralisk.analytics.metrics import *; from ultralisk.analytics.report import *; from ultralisk.strategies.base import *; from ultralisk.strategies.covered_call import *; from ultralisk.strategies.protective_put import *; from ultralisk.strategies.iron_condor import *; from ultralisk.strategies.straddle import *; from ultralisk.strategies.vertical_spread import *; from ultralisk.engine.backtester import *; from ultralisk.strategies import STRATEGY_REGISTRY; print\\('All imports OK'\\); print\\(f'Strategies: {list\\(STRATEGY_REGISTRY.keys\\(\\)\\)}'\\)\")",
+      "Read(//c/Users/nkati/AppData/Local/Programs/**)",
+      "Bash(ls /c/Python*/python.exe)",
+      "Bash(py --version)",
+      "Bash(py -3 --version)",
+      "Bash(py -c \"from ultralisk.domain import *; from ultralisk.data.provider import *; from ultralisk.data.csv_provider import *; from ultralisk.engine.portfolio import *; from ultralisk.analytics.metrics import *; from ultralisk.analytics.report import *; from ultralisk.strategies.base import *; from ultralisk.strategies.covered_call import *; from ultralisk.strategies.protective_put import *; from ultralisk.strategies.iron_condor import *; from ultralisk.strategies.straddle import *; from ultralisk.strategies.vertical_spread import *; from ultralisk.engine.backtester import *; from ultralisk.strategies import STRATEGY_REGISTRY; print\\('All imports OK'\\); print\\(f'Strategies: {list\\(STRATEGY_REGISTRY.keys\\(\\)\\)}'\\)\")"
     ]
-  }
+  },
+  "model": "opus"
 }

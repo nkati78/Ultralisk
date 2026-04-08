@@ -1,6 +1,6 @@
 """Vertical spread strategy - bull put spread or bear call spread."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from ultralisk.domain import Leg, OptionType, OptionsChain, Position, Trade
@@ -29,6 +29,7 @@ class VerticalSpread:
     close_at_profit_pct: float = 0.50
     close_at_loss_pct: float = 2.00
     close_at_dte: int = 7
+    entry_time: str = ""  # e.g. "10:00" - preferred entry time (for logging/filtering)
 
     def scan(self, chain: OptionsChain, current_positions: list[Position]) -> list[Trade]:
         active = [p for p in current_positions if p.strategy_name == self.name]

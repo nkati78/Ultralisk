@@ -2,10 +2,11 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
+from datetime import date, time
 
 from ultralisk.data.fake_provider import FakeDataProvider
 from ultralisk.engine.backtester import Backtester, BacktestConfig
+from ultralisk.filters import EntryExitFilters, TimeOfDayFilter, IndicatorFilter
 from ultralisk.strategies.covered_call import CoveredCall
 from ultralisk.strategies.protective_put import ProtectivePut
 from ultralisk.strategies.iron_condor import IronCondor
@@ -66,7 +67,6 @@ csv_file = None
 if data_source == "CSV File":
     csv_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
-# Synthetic data params
 if data_source == "Synthetic (Fake Data)":
     with st.sidebar.expander("Synthetic Data Settings"):
         synth_start_price = st.number_input("Start Price ($)", value=450.0, step=10.0)
@@ -123,12 +123,6 @@ if strategy_key in ("short_put_spread", "short_call_spread"):
             "Close at DTE", min_value=0, max_value=30, value=7,
             help="Close position when DTE falls to this level",
         )
-        entry_time = st.selectbox(
-            "Entry Time of Day",
-            options=["Market Open (9:30)", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM", "Market Close (3:45)"],
-            index=0,
-            help="Preferred time of day for entry (applies when using intraday data)",
-        )
 
 elif strategy_key == "covered_call":
     col1, col2 = st.columns(2)
@@ -184,6 +178,214 @@ elif strategy_key == "straddle":
         close_at_dte_exit = st.slider("Close at DTE", 0, 30, 7)
 
 
+# ══════════════════════════════════════════════════════════════
+# ── Advanced Settings ─────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+st.markdown("---")
+st.header("Advanced Settings")
+
+adv_tab_time, adv_tab_rsi, adv_tab_bb, adv_tab_ma, adv_tab_vwap = st.tabs(
+    ["Time of Day", "RSI", "Bollinger Bands", "SMA / EMA", "VWAP"]
+)
+
+# ── Time of Day ───────────────────────────────────────────────
+with adv_tab_time:
+    use_time_filter = st.checkbox("Enable Time-of-Day Filter", value=False)
+    if use_time_filter:
+        tcol1, tcol2 = st.columns(2)
+        with tcol1:
+            st.markdown("**Entry Window**")
+            TIME_OPTIONS = {
+                "9:30 AM (Market Open)": time(9, 30),
+                "9:45 AM": time(9, 45),
+                "10:00 AM": time(10, 0),
+                "10:30 AM": time(10, 30),
+                "11:00 AM": time(11, 0),
+                "11:30 AM": time(11, 30),
+                "12:00 PM": time(12, 0),
+                "12:30 PM": time(12, 30),
+                "1:00 PM": time(13, 0),
+                "1:30 PM": time(13, 30),
+                "2:00 PM": time(14, 0),
+                "2:30 PM": time(14, 30),
+                "3:00 PM": time(15, 0),
+                "3:30 PM": time(15, 30),
+                "3:45 PM": time(15, 45),
+                "4:00 PM (Market Close)": time(16, 0),
+            }
+            entry_start_label = st.selectbox(
+                "Earliest Entry", list(TIME_OPTIONS.keys()), index=0,
+            )
+            entry_end_label = st.selectbox(
+                "Latest Entry", list(TIME_OPTIONS.keys()), index=len(TIME_OPTIONS) - 1,
+            )
+            entry_start_time = TIME_OPTIONS[entry_start_label]
+            entry_end_time = TIME_OPTIONS[entry_end_label]
+
+        with tcol2:
+            st.markdown("**Exit Window**")
+            exit_start_label = st.selectbox(
+                "Earliest Exit", list(TIME_OPTIONS.keys()), index=0,
+            )
+            exit_end_label = st.selectbox(
+                "Latest Exit", list(TIME_OPTIONS.keys()), index=len(TIME_OPTIONS) - 1,
+            )
+            exit_start_time = TIME_OPTIONS[exit_start_label]
+            exit_end_time = TIME_OPTIONS[exit_end_label]
+
+        st.info(
+            "Time-of-day filters are recorded with your backtest. "
+            "With daily data they are logged but not enforced. "
+            "They become active when using intraday data."
+        )
+
+# ── RSI ───────────────────────────────────────────────────────
+with adv_tab_rsi:
+    use_rsi = st.checkbox("Enable RSI Filter", value=False)
+    if use_rsi:
+        st.markdown("Only enter trades when RSI(14) is within the specified range.")
+        rcol1, rcol2, rcol3 = st.columns(3)
+        with rcol1:
+            rsi_min = st.slider("RSI Min", 0, 100, 20, help="Minimum RSI to allow entry")
+        with rcol2:
+            rsi_max = st.slider("RSI Max", 0, 100, 80, help="Maximum RSI to allow entry")
+        with rcol3:
+            rsi_zone_filter = st.selectbox(
+                "RSI Zone Filter",
+                ["Any", "Oversold (< 30)", "Neutral (30-70)", "Overbought (> 70)"],
+                index=0,
+                help="Only enter when RSI is in this zone",
+            )
+        if rsi_min > rsi_max:
+            st.warning("RSI Min should be less than RSI Max")
+
+# ── Bollinger Bands ───────────────────────────────────────────
+with adv_tab_bb:
+    use_bb = st.checkbox("Enable Bollinger Bands Filter", value=False)
+    if use_bb:
+        st.markdown("Only enter trades when price is in a specific Bollinger Band zone (20-period, 2 std dev).")
+        bcol1, bcol2 = st.columns(2)
+        with bcol1:
+            bb_position_filter = st.selectbox(
+                "Price Position",
+                ["Any", "Below Lower Band", "Lower Half", "Upper Half", "Above Upper Band"],
+                index=0,
+                help="Where price must be relative to Bollinger Bands",
+            )
+        with bcol2:
+            use_pct_b = st.checkbox("Use %B Range", value=False)
+            if use_pct_b:
+                bb_pct_b_range = st.slider(
+                    "%B Range", min_value=0.0, max_value=1.5,
+                    value=(0.0, 0.2), step=0.05, format="%.2f",
+                    help="0.0 = lower band, 0.5 = middle, 1.0 = upper band",
+                )
+
+# ── SMA / EMA ────────────────────────────────────────────────
+with adv_tab_ma:
+    use_ma = st.checkbox("Enable Moving Average Filter", value=False)
+    if use_ma:
+        st.markdown("Only enter trades when price is above/below selected moving averages.")
+        macol1, macol2 = st.columns(2)
+        with macol1:
+            st.markdown("**Price vs. Moving Average**")
+            ma_sma20 = st.selectbox("SMA(20)", ["Ignore", "Price Above", "Price Below"], index=0)
+            ma_sma50 = st.selectbox("SMA(50)", ["Ignore", "Price Above", "Price Below"], index=0)
+            ma_sma200 = st.selectbox("SMA(200)", ["Ignore", "Price Above", "Price Below"], index=0)
+        with macol2:
+            st.markdown("**EMA & Crossover**")
+            ma_ema9 = st.selectbox("EMA(9)", ["Ignore", "Price Above", "Price Below"], index=0)
+            ma_ema21 = st.selectbox("EMA(21)", ["Ignore", "Price Above", "Price Below"], index=0)
+            ma_cross = st.selectbox(
+                "SMA(20) vs SMA(50)",
+                ["Ignore", "SMA(20) Above (Bullish)", "SMA(20) Below (Bearish)"],
+                index=0,
+                help="Golden cross / death cross filter",
+            )
+
+# ── VWAP ──────────────────────────────────────────────────────
+with adv_tab_vwap:
+    use_vwap = st.checkbox("Enable VWAP Filter", value=False)
+    if use_vwap:
+        st.markdown("Only enter trades when price is above or below VWAP.")
+        vwap_direction = st.selectbox(
+            "Price vs. VWAP",
+            ["Price Above VWAP", "Price Below VWAP"],
+            index=0,
+        )
+
+
+# ── Build Filters ─────────────────────────────────────────────
+def build_filters() -> EntryExitFilters:
+    time_f = TimeOfDayFilter()
+    entry_ind = IndicatorFilter()
+    exit_ind = IndicatorFilter()
+
+    # Time of day
+    if use_time_filter:
+        time_f = TimeOfDayFilter(
+            entry_start=entry_start_time,
+            entry_end=entry_end_time,
+            exit_start=exit_start_time,
+            exit_end=exit_end_time,
+        )
+
+    # RSI
+    if use_rsi:
+        entry_ind.rsi_min = float(rsi_min)
+        entry_ind.rsi_max = float(rsi_max)
+        zone_map = {
+            "Oversold (< 30)": "oversold",
+            "Neutral (30-70)": "neutral",
+            "Overbought (> 70)": "overbought",
+        }
+        if rsi_zone_filter != "Any":
+            entry_ind.rsi_zone = zone_map[rsi_zone_filter]
+
+    # Bollinger Bands
+    if use_bb:
+        pos_map = {
+            "Below Lower Band": "below_lower",
+            "Lower Half": "lower_half",
+            "Upper Half": "upper_half",
+            "Above Upper Band": "above_upper",
+        }
+        if bb_position_filter != "Any":
+            entry_ind.bb_position = pos_map[bb_position_filter]
+        if use_pct_b:
+            entry_ind.bb_pct_b_min = bb_pct_b_range[0]
+            entry_ind.bb_pct_b_max = bb_pct_b_range[1]
+
+    # Moving Averages
+    if use_ma:
+        def _parse_ma(val: str) -> bool | None:
+            if val == "Price Above":
+                return True
+            elif val == "Price Below":
+                return False
+            return None
+
+        entry_ind.price_above_sma_20 = _parse_ma(ma_sma20)
+        entry_ind.price_above_sma_50 = _parse_ma(ma_sma50)
+        entry_ind.price_above_sma_200 = _parse_ma(ma_sma200)
+        entry_ind.price_above_ema_9 = _parse_ma(ma_ema9)
+        entry_ind.price_above_ema_21 = _parse_ma(ma_ema21)
+        if ma_cross == "SMA(20) Above (Bullish)":
+            entry_ind.sma_20_above_50 = True
+        elif ma_cross == "SMA(20) Below (Bearish)":
+            entry_ind.sma_20_above_50 = False
+
+    # VWAP
+    if use_vwap:
+        entry_ind.price_above_vwap = (vwap_direction == "Price Above VWAP")
+
+    return EntryExitFilters(
+        time_filter=time_f,
+        entry_indicator_filter=entry_ind,
+        exit_indicator_filter=exit_ind,
+    )
+
+
 # ── Build Strategy ────────────────────────────────────────────
 def build_strategy():
     if strategy_key == "short_put_spread":
@@ -198,7 +400,6 @@ def build_strategy():
             close_at_profit_pct=close_at_profit,
             close_at_loss_pct=close_at_loss,
             close_at_dte=close_at_dte_exit,
-            entry_time=entry_time,
         )
     elif strategy_key == "short_call_spread":
         return VerticalSpread(
@@ -212,7 +413,6 @@ def build_strategy():
             close_at_profit_pct=close_at_profit,
             close_at_loss_pct=close_at_loss,
             close_at_dte=close_at_dte_exit,
-            entry_time=entry_time,
         )
     elif strategy_key == "covered_call":
         return CoveredCall(
@@ -279,6 +479,7 @@ if st.button("Run Backtest", type="primary", use_container_width=True):
         ticker = ticker_symbol.upper()
 
     strategy = build_strategy()
+    filters = build_filters()
     config = BacktestConfig(
         ticker=ticker,
         start_date=start_date,
@@ -288,7 +489,10 @@ if st.button("Run Backtest", type="primary", use_container_width=True):
     )
 
     with st.spinner("Running backtest..."):
-        backtester = Backtester(config=config, provider=provider, strategies=[strategy])
+        backtester = Backtester(
+            config=config, provider=provider,
+            strategies=[strategy], filters=filters,
+        )
         result = backtester.run()
 
     # ── Results ───────────────────────────────────────────────
@@ -311,7 +515,7 @@ if st.button("Run Backtest", type="primary", use_container_width=True):
     pf = result.profit_factor
     m10.metric("Profit Factor", f"{pf:.2f}" if pf != float("inf") else "∞")
 
-    # Equity curve chart
+    # Equity curve + indicator overlay
     st.subheader("Equity Curve")
     if result.equity_curve:
         eq_df = pd.DataFrame(
@@ -319,6 +523,42 @@ if st.button("Run Backtest", type="primary", use_container_width=True):
         )
         eq_df = eq_df.set_index("Date")
         st.line_chart(eq_df, y="Equity", use_container_width=True)
+
+    # Underlying price + indicators chart
+    if result.indicator_history:
+        st.subheader("Underlying Price & Indicators")
+        ind_rows = []
+        for d in sorted(result.indicator_history):
+            ind = result.indicator_history[d]
+            row = {"Date": d, "Price": ind.price}
+            if ind.sma_20 is not None:
+                row["SMA(20)"] = ind.sma_20
+            if ind.sma_50 is not None:
+                row["SMA(50)"] = ind.sma_50
+            if ind.ema_9 is not None:
+                row["EMA(9)"] = ind.ema_9
+            if ind.ema_21 is not None:
+                row["EMA(21)"] = ind.ema_21
+            if ind.bb_upper is not None:
+                row["BB Upper"] = ind.bb_upper
+                row["BB Lower"] = ind.bb_lower
+            if ind.vwap is not None:
+                row["VWAP"] = ind.vwap
+            ind_rows.append(row)
+
+        ind_df = pd.DataFrame(ind_rows).set_index("Date")
+        st.line_chart(ind_df, use_container_width=True)
+
+        # RSI subplot
+        rsi_rows = [
+            {"Date": d, "RSI": result.indicator_history[d].rsi_14}
+            for d in sorted(result.indicator_history)
+            if result.indicator_history[d].rsi_14 is not None
+        ]
+        if rsi_rows:
+            st.subheader("RSI(14)")
+            rsi_df = pd.DataFrame(rsi_rows).set_index("Date")
+            st.line_chart(rsi_df, y="RSI", use_container_width=True)
 
     # Trade log
     st.subheader("Trade Log")

@@ -1,8 +1,14 @@
 """Performance metrics and backtest result container."""
 
+from __future__ import annotations
+
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ultralisk.indicators import IndicatorValues
 
 from ultralisk.domain import ClosedPosition, Position
 
@@ -15,6 +21,7 @@ class BacktestResult:
     closed_positions: list[ClosedPosition]
     open_positions: list[Position]
     starting_cash: float
+    indicator_history: dict[date, IndicatorValues] = field(default_factory=dict)
 
     @property
     def final_equity(self) -> float:

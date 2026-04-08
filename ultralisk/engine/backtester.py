@@ -1,5 +1,6 @@
 """Main backtesting loop."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
@@ -27,7 +28,7 @@ class Backtester:
         self,
         config: BacktestConfig,
         provider: DataProvider,
-        strategies: list[Strategy],
+        strategies: Sequence[Strategy],
     ) -> None:
         self.config = config
         self.provider = provider

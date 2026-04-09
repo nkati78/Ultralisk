@@ -51,9 +51,17 @@ vega, underlying_price
 
 ```bash
 pip install -e .
+cd frontend && npm install
 ```
 
-With visualization support:
+## Run
+
 ```bash
-pip install -e ".[viz]"
+# Terminal 1: API
+py -m uvicorn server.main:app --port 8000
+
+# Terminal 2: Frontend
+cd frontend && npm run dev
 ```
+
+Then open http://localhost:5173

@@ -65,3 +65,9 @@ cd frontend && npm run dev
 ```
 
 Then open http://localhost:5173
+
+## Demo (no data needed)
+
+```bash
+py scripts/demo.py
+```

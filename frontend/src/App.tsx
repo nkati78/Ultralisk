@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Sidebar } from './components/Sidebar';
 import { StrategyPanel } from './components/StrategyPanel';
 import { AdvancedSettings } from './components/AdvancedSettings';
 import { MetricCard } from './components/MetricCard';
@@ -7,11 +6,21 @@ import { EquityChart } from './components/EquityChart';
 import { PriceChart } from './components/PriceChart';
 import { RSIChart } from './components/RSIChart';
 import { TradeLog } from './components/TradeLog';
+import { InfoTip } from './components/InfoTip';
 import { runBacktest } from './lib/api';
 import { formatCurrency, formatPct } from './lib/utils';
 import type {
   StrategyConfig, AdvancedFilters, SyntheticDataConfig, BacktestResponse,
 } from './types/api';
+
+const STRATEGIES = [
+  { key: 'short_put_spread', name: 'Short Put Vertical Spread' },
+  { key: 'short_call_spread', name: 'Short Call Vertical Spread' },
+  { key: 'covered_call', name: 'Covered Call' },
+  { key: 'protective_put', name: 'Protective Put' },
+  { key: 'iron_condor', name: 'Iron Condor' },
+  { key: 'straddle', name: 'Long Straddle' },
+];
 
 function App() {
   const [strategy, setStrategy] = useState<StrategyConfig>({
@@ -62,20 +71,84 @@ function App() {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar
-        strategy={strategy} onStrategyChange={setStrategy}
-        ticker={ticker} onTickerChange={setTicker}
-        startDate={startDate} onStartDateChange={setStartDate}
-        endDate={endDate} onEndDateChange={setEndDate}
-        startingCash={startingCash} onStartingCashChange={setStartingCash}
-        commission={commission} onCommissionChange={setCommission}
-        syntheticConfig={syntheticConfig} onSyntheticConfigChange={setSyntheticConfig}
-        onRunBacktest={handleRun} isLoading={isLoading}
-      />
+    <div className="min-h-screen">
+      <header className="border-b border-[hsl(var(--border))] px-6 py-4">
+        <h1 className="text-xl font-bold text-white tracking-tight">Ultralisk</h1>
+      </header>
 
-      <main className="flex-1 p-6 overflow-y-auto">
-        {/* Strategy Config */}
+      <main className="p-6">
+        {/* Setup Row */}
+        <section className="mb-8">
+          <h2 className="section-title">Setup</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Strategy */}
+            <div className="card">
+              <h3 className="card-title">Strategy<InfoTip text="The options strategy to backtest. Each strategy has different risk/reward characteristics." /></h3>
+              <select
+                className="input-field"
+                value={strategy.type}
+                onChange={(e) => setStrategy({ ...strategy, type: e.target.value })}
+              >
+                {STRATEGIES.map((s) => (
+                  <option key={s.key} value={s.key}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Ticker & Timeframe */}
+            <div className="card">
+              <h3 className="card-title">Ticker & Timeframe<InfoTip text="The underlying symbol and date range for the backtest simulation." /></h3>
+              <label className="label">Ticker<InfoTip text="The stock or ETF symbol to run the backtest against (e.g. AAPL, SPY, QQQ)." /></label>
+              <input
+                className="input-field"
+                value={ticker}
+                onChange={(e) => setTicker(e.target.value.toUpperCase())}
+              />
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <label className="label">Start<InfoTip text="The first trading date to include in the backtest." /></label>
+                  <input type="date" className="input-field" value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">End<InfoTip text="The last trading date to include in the backtest." /></label>
+                  <input type="date" className="input-field" value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {/* Capital */}
+            <div className="card">
+              <h3 className="card-title">Capital<InfoTip text="Initial portfolio funding and per-contract trading costs." /></h3>
+              <label className="label">Starting Cash ($)<InfoTip text="The total amount of capital available at the start of the backtest." /></label>
+              <input type="number" className="input-field" value={startingCash}
+                onChange={(e) => setStartingCash(Number(e.target.value))} />
+              <label className="label mt-2">Commission/Contract ($)<InfoTip text="The broker fee charged per options contract traded. Applied to both opening and closing trades." /></label>
+              <input type="number" className="input-field" step="0.05" value={commission}
+                onChange={(e) => setCommission(Number(e.target.value))} />
+            </div>
+
+            {/* Synthetic Data */}
+            <div className="card">
+              <h3 className="card-title">Synthetic Data<InfoTip text="Configure the simulated market data generator. Useful for testing without real historical data." /></h3>
+              <label className="label">Start Price ($)<InfoTip text="The underlying asset's price on the first day of the simulation." /></label>
+              <input type="number" className="input-field" value={syntheticConfig.start_price}
+                onChange={(e) => setSyntheticConfig({ ...syntheticConfig, start_price: Number(e.target.value) })} />
+              <label className="label mt-2">Daily Drift<InfoTip text="Expected daily price return. Positive = upward bias, negative = downward. Typical range: -0.001 to 0.001." /></label>
+              <input type="number" className="input-field" step="0.0001" value={syntheticConfig.daily_drift}
+                onChange={(e) => setSyntheticConfig({ ...syntheticConfig, daily_drift: Number(e.target.value) })} />
+              <label className="label mt-2">Base IV<InfoTip text="Base implied volatility for synthetic options. Higher = wider premiums. Typical range: 0.15 to 0.50." /></label>
+              <input type="number" className="input-field" step="0.01" value={syntheticConfig.base_iv}
+                onChange={(e) => setSyntheticConfig({ ...syntheticConfig, base_iv: Number(e.target.value) })} />
+              <label className="label mt-2">Seed<InfoTip text="Random seed for reproducibility. Same seed + same settings = identical results every time." /></label>
+              <input type="number" className="input-field" value={syntheticConfig.seed}
+                onChange={(e) => setSyntheticConfig({ ...syntheticConfig, seed: Number(e.target.value) })} />
+            </div>
+          </div>
+        </section>
+
+        {/* Entry & Exit Criteria */}
         <section className="mb-8">
           <h2 className="section-title">Entry & Exit Criteria</h2>
           <StrategyPanel strategy={strategy} onChange={setStrategy} />
@@ -88,6 +161,17 @@ function App() {
             <AdvancedSettings filters={filters} onChange={setFilters} />
           </div>
         </section>
+
+        {/* Run Button */}
+        <div className="mb-8">
+          <button
+            onClick={handleRun}
+            disabled={isLoading}
+            className="w-full md:w-auto px-12 py-3 rounded-lg font-semibold text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+          >
+            {isLoading ? 'Running...' : 'Run Backtest'}
+          </button>
+        </div>
 
         {/* Error */}
         {error && (

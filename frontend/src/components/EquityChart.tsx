@@ -23,7 +23,7 @@ export function EquityChart({ data }: Props) {
         horzLines: { color: 'rgba(255,255,255,0.04)' },
       },
       width: containerRef.current.clientWidth,
-      height: 350,
+      height: 500,
       crosshair: {
         horzLine: { color: 'rgba(255,255,255,0.1)' },
         vertLine: { color: 'rgba(255,255,255,0.1)' },

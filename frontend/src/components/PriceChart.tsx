@@ -49,7 +49,7 @@ export function PriceChart({ data }: Props) {
         horzLines: { color: 'rgba(255,255,255,0.04)' },
       },
       width: containerRef.current.clientWidth,
-      height: 350,
+      height: 500,
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
       timeScale: { borderColor: 'rgba(255,255,255,0.1)' },
     });

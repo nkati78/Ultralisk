@@ -141,16 +141,9 @@ function App() {
             {result.indicators.length > 0 && (
               <div className="card mb-6">
                 <h3 className="card-title">Price & Indicators</h3>
-                <p className="text-xs text-gray-400 mb-1">
-                  Underlying price with technical indicator overlays.
+                <p className="text-xs text-gray-400 mb-3">
+                  Underlying price with optional technical indicator overlays.
                 </p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
-                  <span><span className="inline-block w-3 h-0.5 bg-white mr-1 align-middle" />Price</span>
-                  <span><span className="inline-block w-3 h-0.5 bg-amber-400 mr-1 align-middle" />SMA 20</span>
-                  <span><span className="inline-block w-3 h-0.5 bg-violet-500 mr-1 align-middle" />SMA 50</span>
-                  <span><span className="inline-block w-3 h-0.5 bg-cyan-400 mr-1 align-middle" style={{ borderTop: '1px dashed' }} />EMA 9</span>
-                  <span><span className="inline-block w-3 h-0.5 bg-red-400/40 mr-1 align-middle" />Bollinger Bands</span>
-                </div>
                 <PriceChart data={result.indicators} />
               </div>
             )}

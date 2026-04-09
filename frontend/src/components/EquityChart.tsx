@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createChart, AreaSeries, ColorType } from 'lightweight-charts';
 
 interface Props {
@@ -7,11 +7,10 @@ interface Props {
 
 export function EquityChart({ data }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
-  const seriesRef = useRef<any>(null);
+  const [showPriceLines, setShowPriceLines] = useState(false);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || data.length === 0) return;
 
     const chart = createChart(containerRef.current, {
       layout: {
@@ -38,10 +37,12 @@ export function EquityChart({ data }: Props) {
       topColor: 'rgba(59,130,246,0.3)',
       bottomColor: 'rgba(59,130,246,0.01)',
       lineWidth: 2,
+      priceLineVisible: showPriceLines,
+      lastValueVisible: showPriceLines,
     });
 
-    chartRef.current = chart;
-    seriesRef.current = series;
+    series.setData(data.map((d) => ({ time: d.date, value: d.equity })));
+    chart.timeScale().fitContent();
 
     const handleResize = () => {
       if (containerRef.current) {
@@ -54,16 +55,24 @@ export function EquityChart({ data }: Props) {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, []);
+  }, [data, showPriceLines]);
 
-  useEffect(() => {
-    if (seriesRef.current && data.length > 0) {
-      seriesRef.current.setData(
-        data.map((d) => ({ time: d.date, value: d.equity }))
-      );
-      chartRef.current?.timeScale().fitContent();
-    }
-  }, [data]);
-
-  return <div ref={containerRef} className="w-full" />;
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-3">
+        <button
+          onClick={() => setShowPriceLines((p) => !p)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+            showPriceLines
+              ? 'bg-white/10 text-white'
+              : 'bg-white/[0.03] text-gray-500 hover:bg-white/[0.06] hover:text-gray-400'
+          }`}
+        >
+          <span className="inline-block w-3 border-t border-dashed border-gray-400" style={{ opacity: showPriceLines ? 1 : 0.4 }} />
+          Price Lines
+        </button>
+      </div>
+      <div ref={containerRef} className="w-full" />
+    </div>
+  );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createChart, LineSeries, ColorType } from 'lightweight-charts';
 import type { IndicatorSnapshot } from '../types/api';
 
@@ -8,6 +8,7 @@ interface Props {
 
 export function RSIChart({ data }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showPriceLines, setShowPriceLines] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -31,7 +32,12 @@ export function RSIChart({ data }: Props) {
       timeScale: { borderColor: 'rgba(255,255,255,0.1)' },
     });
 
-    const series = chart.addSeries(LineSeries, { color: '#a855f7', lineWidth: 2 });
+    const series = chart.addSeries(LineSeries, {
+      color: '#a855f7',
+      lineWidth: 2,
+      priceLineVisible: showPriceLines,
+      lastValueVisible: showPriceLines,
+    });
     series.setData(rsiData.map((d) => ({ time: d.date, value: d.rsi_14! })));
 
     // Overbought/oversold lines
@@ -49,7 +55,24 @@ export function RSIChart({ data }: Props) {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [data]);
+  }, [data, showPriceLines]);
 
-  return <div ref={containerRef} className="w-full" />;
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-3">
+        <button
+          onClick={() => setShowPriceLines((p) => !p)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+            showPriceLines
+              ? 'bg-white/10 text-white'
+              : 'bg-white/[0.03] text-gray-500 hover:bg-white/[0.06] hover:text-gray-400'
+          }`}
+        >
+          <span className="inline-block w-3 border-t border-dashed border-gray-400" style={{ opacity: showPriceLines ? 1 : 0.4 }} />
+          Price Lines
+        </button>
+      </div>
+      <div ref={containerRef} className="w-full" />
+    </div>
+  );
 }

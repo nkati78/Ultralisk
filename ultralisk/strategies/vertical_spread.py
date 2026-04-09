@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from ultralisk.domain import Leg, OptionType, OptionsChain, Position, Trade
+from ultralisk.strategies.utils import find_current_contract, intrinsic_value
 
 
 class SpreadDirection(Enum):
@@ -138,7 +139,7 @@ class VerticalSpread:
             for leg in position.entry_trade.legs
         )
         intrinsic = sum(
-            leg.quantity * self._intrinsic(leg.contract, chain.underlying_price) * 100
+            leg.quantity * intrinsic_value(leg.contract, chain.underlying_price) * 100
             for leg in position.entry_trade.legs
         )
         return Trade(legs=close_legs, trade_date=chain.quote_date, net_premium=intrinsic)
@@ -146,7 +147,7 @@ class VerticalSpread:
     def _cost_to_close(self, position: Position, chain: OptionsChain) -> float | None:
         total = 0.0
         for leg in position.entry_trade.legs:
-            current = self._find_current(leg.contract, chain)
+            current = find_current_contract(leg.contract, chain)
             if current is None:
                 return None
             # For short legs we pay mid, for long legs we receive mid
@@ -165,17 +166,3 @@ class VerticalSpread:
             return None
         return min(candidates, key=lambda c: abs(c.strike - target_strike))
 
-    def _find_current(self, contract, chain: OptionsChain):
-        for c in chain.contracts:
-            if (
-                c.strike == contract.strike
-                and c.expiration == contract.expiration
-                and c.option_type == contract.option_type
-            ):
-                return c
-        return None
-
-    def _intrinsic(self, contract, underlying_price: float) -> float:
-        if contract.option_type == OptionType.CALL:
-            return max(0.0, underlying_price - contract.strike)
-        return max(0.0, contract.strike - underlying_price)

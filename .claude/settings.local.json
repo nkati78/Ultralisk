@@ -13,7 +13,22 @@
       "Bash(where:*)",
       "Bash(which:*)",
       "Bash(ls:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:8000/api/health)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(gh repo:*)",
+      "Bash(winget install:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/GitHub CLI\")",
+      "Bash(gh auth:*)",
+      "Bash(grep -n \"_find_current\\\\|_intrinsic\\\\|def _\" /c/Users/nkati/OneDrive/Documents/GitHub/Ultralisk/ultralisk/strategies/*.py)",
+      "Bash(grep -n \"\\\\\\\\btime\\\\\\\\b\" /c/Users/nkati/OneDrive/Documents/GitHub/Ultralisk/app.py)",
+      "Bash(du -sh /c/Users/nkati/OneDrive/Documents/GitHub/Ultralisk/*)",
+      "Bash(grep -r \"\\\\\\\\bcn\\(\" /c/Users/nkati/OneDrive/Documents/GitHub/Ultralisk/frontend/src --include=\"*.tsx\" --include=\"*.ts\")",
+      "Bash(npm uninstall:*)"
     ]
   },
   "model": "opus"

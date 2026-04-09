@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from ultralisk.domain import Leg, OptionType, OptionsChain, Position, Trade
+from ultralisk.strategies.utils import find_current_contract, intrinsic_value
 
 
 @dataclass
@@ -49,10 +50,10 @@ class ProtectivePut:
         contract = entry_leg.contract
         dte = contract.dte(chain.quote_date)
 
-        current = self._find_current(contract, chain)
+        current = find_current_contract(contract, chain)
 
         if dte <= 0:
-            close_price = self._intrinsic(contract, chain.underlying_price) if current is None else current.mid
+            close_price = intrinsic_value(contract, chain.underlying_price) if current is None else current.mid
             return self._closing_trade(entry_leg, chain, close_price)
 
         if current is None:
@@ -86,15 +87,3 @@ class ProtectivePut:
             net_premium=price * 100,  # credit from selling
         )
 
-    def _find_current(self, contract, chain: OptionsChain):
-        for c in chain.contracts:
-            if (
-                c.strike == contract.strike
-                and c.expiration == contract.expiration
-                and c.option_type == contract.option_type
-            ):
-                return c
-        return None
-
-    def _intrinsic(self, contract, underlying_price: float) -> float:
-        return max(0.0, contract.strike - underlying_price)

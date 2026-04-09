@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from ultralisk.domain import Leg, OptionType, OptionsChain, Position, Trade
+from ultralisk.strategies.utils import find_current_contract, intrinsic_value
 
 
 @dataclass
@@ -91,7 +92,7 @@ class Straddle:
             for leg in position.entry_trade.legs
         )
         value = sum(
-            self._intrinsic(leg.contract, chain.underlying_price) * abs(leg.quantity) * 100
+            intrinsic_value(leg.contract, chain.underlying_price) * abs(leg.quantity) * 100
             for leg in position.entry_trade.legs
         )
         return Trade(legs=close_legs, trade_date=chain.quote_date, net_premium=value)
@@ -99,23 +100,9 @@ class Straddle:
     def _current_value(self, position: Position, chain: OptionsChain) -> float | None:
         total = 0.0
         for leg in position.entry_trade.legs:
-            current = self._find_current(leg.contract, chain)
+            current = find_current_contract(leg.contract, chain)
             if current is None:
                 return None
             total += abs(leg.quantity) * current.mid * 100
         return total
 
-    def _find_current(self, contract, chain: OptionsChain):
-        for c in chain.contracts:
-            if (
-                c.strike == contract.strike
-                and c.expiration == contract.expiration
-                and c.option_type == contract.option_type
-            ):
-                return c
-        return None
-
-    def _intrinsic(self, contract, underlying_price: float) -> float:
-        if contract.option_type == OptionType.CALL:
-            return max(0.0, underlying_price - contract.strike)
-        return max(0.0, contract.strike - underlying_price)

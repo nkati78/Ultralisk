@@ -130,6 +130,10 @@ function App() {
             {/* Equity Curve */}
             <div className="card mb-6">
               <h3 className="card-title">Equity Curve</h3>
+              <p className="text-xs text-gray-400 mb-3">
+                Your portfolio's total value over time, including cash and open positions.
+                A rising curve means the strategy is growing capital; dips represent drawdowns.
+              </p>
               <EquityChart data={result.equity_curve} />
             </div>
 
@@ -137,6 +141,16 @@ function App() {
             {result.indicators.length > 0 && (
               <div className="card mb-6">
                 <h3 className="card-title">Price & Indicators</h3>
+                <p className="text-xs text-gray-400 mb-1">
+                  Underlying price with technical indicator overlays.
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
+                  <span><span className="inline-block w-3 h-0.5 bg-white mr-1 align-middle" />Price</span>
+                  <span><span className="inline-block w-3 h-0.5 bg-amber-400 mr-1 align-middle" />SMA 20</span>
+                  <span><span className="inline-block w-3 h-0.5 bg-violet-500 mr-1 align-middle" />SMA 50</span>
+                  <span><span className="inline-block w-3 h-0.5 bg-cyan-400 mr-1 align-middle" style={{ borderTop: '1px dashed' }} />EMA 9</span>
+                  <span><span className="inline-block w-3 h-0.5 bg-red-400/40 mr-1 align-middle" />Bollinger Bands</span>
+                </div>
                 <PriceChart data={result.indicators} />
               </div>
             )}
@@ -144,7 +158,15 @@ function App() {
             {/* RSI */}
             {result.indicators.some((d) => d.rsi_14 !== null) && (
               <div className="card mb-6">
-                <h3 className="card-title">RSI(14)</h3>
+                <h3 className="card-title">RSI (14-period)</h3>
+                <p className="text-xs text-gray-400 mb-1">
+                  Relative Strength Index measures momentum on a 0-100 scale.
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
+                  <span><span className="inline-block w-3 h-0.5 bg-purple-400 mr-1 align-middle" />RSI</span>
+                  <span><span className="inline-block w-3 h-0.5 bg-red-400/50 mr-1 align-middle" style={{ borderTop: '1px dashed' }} />Overbought (70)</span>
+                  <span><span className="inline-block w-3 h-0.5 bg-green-400/50 mr-1 align-middle" style={{ borderTop: '1px dashed' }} />Oversold (30)</span>
+                </div>
                 <RSIChart data={result.indicators} />
               </div>
             )}
@@ -152,6 +174,9 @@ function App() {
             {/* Trade Log */}
             <div className="card mb-6">
               <h3 className="card-title">Trade Log</h3>
+              <p className="text-xs text-gray-400 mb-3">
+                Each completed trade with entry/exit dates, P&L, and outcome.
+              </p>
               <TradeLog trades={result.trades} />
             </div>
 

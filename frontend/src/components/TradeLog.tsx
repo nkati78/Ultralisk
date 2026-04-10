@@ -37,13 +37,15 @@ export function TradeLog({ trades }: Props) {
               <td className="td font-mono text-xs">{t.strikes}</td>
               <td className="td text-right font-mono">{formatCurrency(t.entry_premium)}</td>
               <td className="td text-right font-mono">{formatCurrency(t.exit_premium)}</td>
-              <td className={`td text-right font-mono font-semibold ${t.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <td className={`td text-right font-mono font-semibold ${t.pnl >= 0 ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--danger))]'}`}>
                 {formatCurrency(t.pnl)}
               </td>
               <td className="td text-right font-mono">{t.days_held}</td>
               <td className="td">
-                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                  t.result === 'WIN' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                  t.result === 'WIN'
+                    ? 'border-[hsl(var(--accent))] text-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.1)]'
+                    : 'border-[hsl(var(--danger))] text-[hsl(var(--danger))] bg-[hsl(var(--danger)/0.1)]'
                 }`}>
                   {t.result}
                 </span>

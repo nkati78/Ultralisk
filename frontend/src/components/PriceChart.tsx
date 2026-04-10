@@ -140,7 +140,7 @@ export function PriceChart({ data }: Props) {
             onClick={() => toggle(o.key)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
               visibility[o.key]
-                ? 'bg-white/10 text-white'
+                ? 'bg-[hsl(var(--accent)/0.15)] text-[hsl(var(--accent))]'
                 : 'bg-white/[0.03] text-gray-500 hover:bg-white/[0.06] hover:text-gray-400'
             }`}
           >

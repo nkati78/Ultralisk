@@ -33,9 +33,9 @@ export function EquityChart({ data }: Props) {
     });
 
     const series = chart.addSeries(AreaSeries, {
-      lineColor: '#3b82f6',
-      topColor: 'rgba(59,130,246,0.3)',
-      bottomColor: 'rgba(59,130,246,0.01)',
+      lineColor: '#1DE9B6',
+      topColor: 'rgba(29,233,182,0.25)',
+      bottomColor: 'rgba(29,233,182,0.01)',
       lineWidth: 2,
       priceLineVisible: showPriceLines,
       lastValueVisible: showPriceLines,
@@ -64,7 +64,7 @@ export function EquityChart({ data }: Props) {
           onClick={() => setShowPriceLines((p) => !p)}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
             showPriceLines
-              ? 'bg-white/10 text-white'
+              ? 'bg-[hsl(var(--accent)/0.15)] text-[hsl(var(--accent))]'
               : 'bg-white/[0.03] text-gray-500 hover:bg-white/[0.06] hover:text-gray-400'
           }`}
         >

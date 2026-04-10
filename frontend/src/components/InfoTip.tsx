@@ -10,7 +10,7 @@ export function InfoTip({ text }: Props) {
   return (
     <span className="relative inline-flex items-center ml-1">
       <span
-        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-white/10 text-[9px] font-bold text-gray-400 cursor-help select-none hover:bg-white/20 hover:text-gray-300 transition-colors"
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-[hsl(var(--accent)/0.15)] text-[9px] font-bold text-[hsl(var(--accent))] cursor-help select-none hover:bg-[hsl(var(--accent)/0.25)] transition-colors"
         onMouseEnter={() => setShow(true)}
         onMouseLeave={() => setShow(false)}
       >

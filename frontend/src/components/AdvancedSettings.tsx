@@ -45,7 +45,7 @@ export function AdvancedSettings({ filters, onChange }: Props) {
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
               tab === t.key
-                ? 'border-blue-500 text-blue-400'
+                ? 'border-[hsl(var(--accent))] text-[hsl(var(--accent))]'
                 : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-white'
             }`}
           >

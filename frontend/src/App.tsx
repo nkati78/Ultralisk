@@ -72,7 +72,8 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-[hsl(var(--border))] px-6 py-4">
+      <header className="border-b border-[hsl(var(--border))] px-6 py-4 flex items-center gap-3">
+        <span className="text-[hsl(var(--accent))] text-2xl">&#9670;</span>
         <h1 className="text-xl font-bold text-white tracking-tight">Ultralisk</h1>
       </header>
 
@@ -167,7 +168,7 @@ function App() {
           <button
             onClick={handleRun}
             disabled={isLoading}
-            className="w-full md:w-auto px-12 py-3 rounded-lg font-semibold text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+            className="w-full md:w-auto px-12 py-3 rounded-lg font-semibold text-sm bg-[hsl(var(--accent))] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-[hsl(var(--primary-foreground))] transition-all"
           >
             {isLoading ? 'Running...' : 'Run Backtest'}
           </button>
@@ -175,8 +176,8 @@ function App() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
-            <p className="text-red-400 text-sm">{error}</p>
+          <div className="bg-[hsl(var(--danger)/0.1)] border border-[hsl(var(--danger)/0.3)] rounded-lg p-4 mb-6">
+            <p className="text-[hsl(var(--danger))] text-sm">{error}</p>
           </div>
         )}
 
@@ -240,9 +241,9 @@ function App() {
                   Relative Strength Index measures momentum on a 0-100 scale.
                 </p>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
-                  <span><span className="inline-block w-3 h-0.5 bg-purple-400 mr-1 align-middle" />RSI</span>
-                  <span><span className="inline-block w-3 h-0.5 bg-red-400/50 mr-1 align-middle" style={{ borderTop: '1px dashed' }} />Overbought (70)</span>
-                  <span><span className="inline-block w-3 h-0.5 bg-green-400/50 mr-1 align-middle" style={{ borderTop: '1px dashed' }} />Oversold (30)</span>
+                  <span><span className="inline-block w-3 h-0.5 mr-1 align-middle" style={{ backgroundColor: '#1DE9B6' }} />RSI</span>
+                  <span><span className="inline-block w-3 h-0.5 bg-red-500/60 mr-1 align-middle" style={{ borderTop: '1px dashed' }} />Overbought (70)</span>
+                  <span><span className="inline-block w-3 h-0.5 mr-1 align-middle" style={{ backgroundColor: 'rgba(29,233,182,0.6)', borderTop: '1px dashed' }} />Oversold (30)</span>
                 </div>
                 <RSIChart data={result.indicators} />
               </div>

@@ -33,7 +33,7 @@ export function RSIChart({ data }: Props) {
     });
 
     const series = chart.addSeries(LineSeries, {
-      color: '#a855f7',
+      color: '#1DE9B6',
       lineWidth: 2,
       priceLineVisible: showPriceLines,
       lastValueVisible: showPriceLines,
@@ -41,8 +41,8 @@ export function RSIChart({ data }: Props) {
     series.setData(rsiData.map((d) => ({ time: d.date, value: d.rsi_14! })));
 
     // Overbought/oversold lines
-    series.createPriceLine({ price: 70, color: 'rgba(239,68,68,0.5)', lineWidth: 1, lineStyle: 2 });
-    series.createPriceLine({ price: 30, color: 'rgba(34,197,94,0.5)', lineWidth: 1, lineStyle: 2 });
+    series.createPriceLine({ price: 70, color: 'rgba(239,68,68,0.6)', lineWidth: 1, lineStyle: 2 });
+    series.createPriceLine({ price: 30, color: 'rgba(29,233,182,0.6)', lineWidth: 1, lineStyle: 2 });
 
     chart.timeScale().fitContent();
 
@@ -64,7 +64,7 @@ export function RSIChart({ data }: Props) {
           onClick={() => setShowPriceLines((p) => !p)}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
             showPriceLines
-              ? 'bg-white/10 text-white'
+              ? 'bg-[hsl(var(--accent)/0.15)] text-[hsl(var(--accent))]'
               : 'bg-white/[0.03] text-gray-500 hover:bg-white/[0.06] hover:text-gray-400'
           }`}
         >

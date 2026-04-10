@@ -78,73 +78,83 @@ function App() {
       </header>
 
       <main className="p-6">
-        {/* Setup Row */}
+        {/* Setup */}
         <section className="mb-8">
           <h2 className="section-title">Setup</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Strategy */}
-            <div className="card">
-              <h3 className="card-title">Strategy<InfoTip text="The options strategy to backtest. Each strategy has different risk/reward characteristics." /></h3>
-              <select
-                className="input-field"
-                value={strategy.type}
-                onChange={(e) => setStrategy({ ...strategy, type: e.target.value })}
-              >
-                {STRATEGIES.map((s) => (
-                  <option key={s.key} value={s.key}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Ticker & Timeframe */}
-            <div className="card">
-              <h3 className="card-title">Ticker & Timeframe<InfoTip text="The underlying symbol and date range for the backtest simulation." /></h3>
-              <label className="label">Ticker<InfoTip text="The stock or ETF symbol to run the backtest against (e.g. AAPL, SPY, QQQ)." /></label>
-              <input
-                className="input-field"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value.toUpperCase())}
-              />
-              <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="card">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
+              {/* Group 1: Strategy, Ticker, Starting Price */}
+              <div className="space-y-3">
                 <div>
-                  <label className="label">Start<InfoTip text="The first trading date to include in the backtest." /></label>
+                  <label className="label">Strategy<InfoTip text="The options strategy to backtest. Each strategy has different risk/reward characteristics." /></label>
+                  <select
+                    className="input-field"
+                    value={strategy.type}
+                    onChange={(e) => setStrategy({ ...strategy, type: e.target.value })}
+                  >
+                    {STRATEGIES.map((s) => (
+                      <option key={s.key} value={s.key}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Ticker<InfoTip text="The stock or ETF symbol (e.g. AAPL, SPY, QQQ)." /></label>
+                  <input className="input-field" value={ticker}
+                    onChange={(e) => setTicker(e.target.value.toUpperCase())} />
+                </div>
+                <div>
+                  <label className="label">Starting Price ($)<InfoTip text="Synthetic data: underlying price on day one." /></label>
+                  <input type="number" className="input-field" value={syntheticConfig.start_price}
+                    onChange={(e) => setSyntheticConfig({ ...syntheticConfig, start_price: Number(e.target.value) })} />
+                </div>
+              </div>
+
+              {/* Group 2: Starting Cash, Commission */}
+              <div className="space-y-3">
+                <div>
+                  <label className="label">Starting Cash ($)<InfoTip text="Total capital available at the start of the backtest." /></label>
+                  <input type="number" className="input-field" value={startingCash}
+                    onChange={(e) => setStartingCash(Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="label">Commission ($)<InfoTip text="Broker fee per options contract. Applied to opens and closes." /></label>
+                  <input type="number" className="input-field" step="0.05" value={commission}
+                    onChange={(e) => setCommission(Number(e.target.value))} />
+                </div>
+              </div>
+
+              {/* Group 3: Start Date, End Date */}
+              <div className="space-y-3">
+                <div>
+                  <label className="label">Start Date<InfoTip text="The first trading date to include in the backtest." /></label>
                   <input type="date" className="input-field" value={startDate}
                     onChange={(e) => setStartDate(e.target.value)} />
                 </div>
                 <div>
-                  <label className="label">End<InfoTip text="The last trading date to include in the backtest." /></label>
+                  <label className="label">End Date<InfoTip text="The last trading date to include in the backtest." /></label>
                   <input type="date" className="input-field" value={endDate}
                     onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </div>
-            </div>
 
-            {/* Capital */}
-            <div className="card">
-              <h3 className="card-title">Capital<InfoTip text="Initial portfolio funding and per-contract trading costs." /></h3>
-              <label className="label">Starting Cash ($)<InfoTip text="The total amount of capital available at the start of the backtest." /></label>
-              <input type="number" className="input-field" value={startingCash}
-                onChange={(e) => setStartingCash(Number(e.target.value))} />
-              <label className="label mt-2">Commission/Contract ($)<InfoTip text="The broker fee charged per options contract traded. Applied to both opening and closing trades." /></label>
-              <input type="number" className="input-field" step="0.05" value={commission}
-                onChange={(e) => setCommission(Number(e.target.value))} />
-            </div>
-
-            {/* Synthetic Data */}
-            <div className="card">
-              <h3 className="card-title">Synthetic Data<InfoTip text="Configure the simulated market data generator. Useful for testing without real historical data." /></h3>
-              <label className="label">Start Price ($)<InfoTip text="The underlying asset's price on the first day of the simulation." /></label>
-              <input type="number" className="input-field" value={syntheticConfig.start_price}
-                onChange={(e) => setSyntheticConfig({ ...syntheticConfig, start_price: Number(e.target.value) })} />
-              <label className="label mt-2">Daily Drift<InfoTip text="Expected daily price return. Positive = upward bias, negative = downward. Typical range: -0.001 to 0.001." /></label>
-              <input type="number" className="input-field" step="0.0001" value={syntheticConfig.daily_drift}
-                onChange={(e) => setSyntheticConfig({ ...syntheticConfig, daily_drift: Number(e.target.value) })} />
-              <label className="label mt-2">Base IV<InfoTip text="Base implied volatility for synthetic options. Higher = wider premiums. Typical range: 0.15 to 0.50." /></label>
-              <input type="number" className="input-field" step="0.01" value={syntheticConfig.base_iv}
-                onChange={(e) => setSyntheticConfig({ ...syntheticConfig, base_iv: Number(e.target.value) })} />
-              <label className="label mt-2">Seed<InfoTip text="Random seed for reproducibility. Same seed + same settings = identical results every time." /></label>
-              <input type="number" className="input-field" value={syntheticConfig.seed}
-                onChange={(e) => setSyntheticConfig({ ...syntheticConfig, seed: Number(e.target.value) })} />
+              {/* Group 4: Daily Drift, Base IV, Seed */}
+              <div className="space-y-3">
+                <div>
+                  <label className="label">Daily Drift<InfoTip text="Synthetic data: expected daily return. Typical: -0.001 to 0.001." /></label>
+                  <input type="number" className="input-field" step="0.0001" value={syntheticConfig.daily_drift}
+                    onChange={(e) => setSyntheticConfig({ ...syntheticConfig, daily_drift: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="label">Base IV<InfoTip text="Synthetic data: implied volatility for pricing options. Typical: 0.15 to 0.50." /></label>
+                  <input type="number" className="input-field" step="0.01" value={syntheticConfig.base_iv}
+                    onChange={(e) => setSyntheticConfig({ ...syntheticConfig, base_iv: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="label">Seed<InfoTip text="Synthetic data: random seed for reproducibility." /></label>
+                  <input type="number" className="input-field" value={syntheticConfig.seed}
+                    onChange={(e) => setSyntheticConfig({ ...syntheticConfig, seed: Number(e.target.value) })} />
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -164,13 +174,13 @@ function App() {
         </section>
 
         {/* Run Button */}
-        <div className="mb-8">
+        <div className="mb-8 flex justify-center" style={{ marginTop: '32px' }}>
           <button
             onClick={handleRun}
             disabled={isLoading}
-            className="w-full md:w-auto px-12 py-3 rounded-lg font-semibold text-sm bg-[hsl(var(--accent))] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-[hsl(var(--primary-foreground))] transition-all"
+            className="w-1/3 py-4 rounded-lg font-bold text-base bg-[hsl(var(--accent))] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-[hsl(var(--primary-foreground))] transition-all"
           >
-            {isLoading ? 'Running...' : 'Run Backtest'}
+            {isLoading ? 'Running Backtest...' : 'Run Backtest'}
           </button>
         </div>
 

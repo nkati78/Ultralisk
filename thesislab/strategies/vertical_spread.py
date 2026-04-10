@@ -3,8 +3,8 @@
 from dataclasses import dataclass, field
 from enum import Enum
 
-from ultralisk.domain import Leg, OptionType, OptionsChain, Position, Trade
-from ultralisk.strategies.utils import find_current_contract, intrinsic_value
+from thesislab.domain import Leg, OptionType, OptionsChain, Position, Trade
+from thesislab.strategies.utils import find_current_contract, intrinsic_value
 
 
 class SpreadDirection(Enum):

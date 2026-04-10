@@ -6,12 +6,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 
-from ultralisk.analytics.metrics import BacktestResult
-from ultralisk.data.provider import DataProvider
-from ultralisk.engine.portfolio import Portfolio
-from ultralisk.filters import EntryExitFilters
-from ultralisk.indicators import IndicatorEngine, IndicatorValues
-from ultralisk.strategies.base import Strategy
+from thesislab.analytics.metrics import BacktestResult
+from thesislab.data.provider import DataProvider
+from thesislab.engine.portfolio import Portfolio
+from thesislab.filters import EntryExitFilters
+from thesislab.indicators import IndicatorEngine, IndicatorValues
+from thesislab.strategies.base import Strategy
 
 
 @dataclass

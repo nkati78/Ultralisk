@@ -74,7 +74,7 @@ function App() {
     <div className="min-h-screen">
       <header className="border-b border-[hsl(var(--border))] px-6 py-4 flex items-center gap-3">
         <span className="text-[hsl(var(--accent))] text-2xl">&#9670;</span>
-        <h1 className="text-xl font-bold text-white tracking-tight">Ultralisk</h1>
+        <h1 className="text-xl font-bold text-white tracking-tight">ThesisLab</h1>
       </header>
 
       <main className="p-6">

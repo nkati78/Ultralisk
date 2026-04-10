@@ -7,7 +7,7 @@ No external data or files required.
 import math
 from datetime import date, timedelta
 
-from ultralisk.domain import OptionContract, OptionType, OptionsChain
+from thesislab.domain import OptionContract, OptionType, OptionsChain
 
 
 def _black_scholes_delta(S: float, K: float, T: float, sigma: float, is_call: bool) -> float:

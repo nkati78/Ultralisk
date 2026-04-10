@@ -1,6 +1,6 @@
 """Shared utility functions for strategy implementations."""
 
-from ultralisk.domain import OptionType, OptionsChain, OptionContract, Leg
+from thesislab.domain import OptionType, OptionsChain, OptionContract, Leg
 
 
 def find_current_contract(contract: OptionContract, chain: OptionsChain) -> OptionContract | None:

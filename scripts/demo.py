@@ -2,11 +2,11 @@
 
 from datetime import date
 
-from ultralisk.data.fake_provider import FakeDataProvider
-from ultralisk.engine.backtester import Backtester, BacktestConfig
-from ultralisk.strategies.covered_call import CoveredCall
-from ultralisk.strategies.iron_condor import IronCondor
-from ultralisk.analytics.report import print_summary
+from thesislab.data.fake_provider import FakeDataProvider
+from thesislab.engine.backtester import Backtester, BacktestConfig
+from thesislab.strategies.covered_call import CoveredCall
+from thesislab.strategies.iron_condor import IronCondor
+from thesislab.analytics.report import print_summary
 
 
 def main():

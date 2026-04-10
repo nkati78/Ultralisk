@@ -1,6 +1,6 @@
 """Formatted output and reporting for backtest results."""
 
-from ultralisk.analytics.metrics import BacktestResult
+from thesislab.analytics.metrics import BacktestResult
 
 
 def print_summary(result: BacktestResult) -> None:

@@ -1,4 +1,4 @@
-"""FastAPI backend for the Ultralisk backtesting engine."""
+"""FastAPI backend for the ThesisLab backtesting engine."""
 
 from __future__ import annotations
 
@@ -10,16 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from server.schemas import (
     BacktestRequest, BacktestResponse, TradeResult, IndicatorSnapshot,
 )
-from ultralisk.data.fake_provider import FakeDataProvider
-from ultralisk.engine.backtester import Backtester, BacktestConfig
-from ultralisk.filters import EntryExitFilters, IndicatorFilter, TimeOfDayFilter
-from ultralisk.strategies.covered_call import CoveredCall
-from ultralisk.strategies.protective_put import ProtectivePut
-from ultralisk.strategies.iron_condor import IronCondor
-from ultralisk.strategies.straddle import Straddle
-from ultralisk.strategies.vertical_spread import VerticalSpread, SpreadDirection
+from thesislab.data.fake_provider import FakeDataProvider
+from thesislab.engine.backtester import Backtester, BacktestConfig
+from thesislab.filters import EntryExitFilters, IndicatorFilter, TimeOfDayFilter
+from thesislab.strategies.covered_call import CoveredCall
+from thesislab.strategies.protective_put import ProtectivePut
+from thesislab.strategies.iron_condor import IronCondor
+from thesislab.strategies.straddle import Straddle
+from thesislab.strategies.vertical_spread import VerticalSpread, SpreadDirection
 
-app = FastAPI(title="Ultralisk Backtester API")
+app = FastAPI(title="ThesisLab Backtester API")
 
 app.add_middleware(
     CORSMiddleware,

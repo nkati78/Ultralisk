@@ -4,7 +4,7 @@ import csv
 from datetime import date, datetime
 from pathlib import Path
 
-from ultralisk.domain import OptionContract, OptionType, OptionsChain
+from thesislab.domain import OptionContract, OptionType, OptionsChain
 
 
 class CsvDataProvider:

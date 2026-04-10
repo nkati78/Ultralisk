@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from ultralisk.domain import OptionsChain, Position, Trade
+from thesislab.domain import OptionsChain, Position, Trade
 
 
 class Strategy(Protocol):

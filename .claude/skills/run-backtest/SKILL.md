@@ -1,6 +1,6 @@
 ---
 name: run-backtest
-description: Run an options backtest using the Ultralisk backtesting engine. Use when the user asks to backtest a strategy, test options trades, or run a simulation.
+description: Run an options backtest using the ThesisLab backtesting engine. Use when the user asks to backtest a strategy, test options trades, or run a simulation.
 ---
 
 When the user asks to run a backtest:
@@ -15,16 +15,16 @@ When the user asks to run a backtest:
 
 ```python
 from datetime import date
-from ultralisk.data.fake_provider import FakeDataProvider
-from ultralisk.engine.backtester import Backtester, BacktestConfig
-from ultralisk.analytics.report import print_summary
+from thesislab.data.fake_provider import FakeDataProvider
+from thesislab.engine.backtester import Backtester, BacktestConfig
+from thesislab.analytics.report import print_summary
 
 # Available strategies:
-from ultralisk.strategies.covered_call import CoveredCall
-from ultralisk.strategies.protective_put import ProtectivePut
-from ultralisk.strategies.iron_condor import IronCondor
-from ultralisk.strategies.straddle import Straddle
-from ultralisk.strategies.vertical_spread import VerticalSpread, SpreadDirection
+from thesislab.strategies.covered_call import CoveredCall
+from thesislab.strategies.protective_put import ProtectivePut
+from thesislab.strategies.iron_condor import IronCondor
+from thesislab.strategies.straddle import Straddle
+from thesislab.strategies.vertical_spread import VerticalSpread, SpreadDirection
 ```
 
 3. Show the results summary using `print_summary(result)` or reference key metrics:

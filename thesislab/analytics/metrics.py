@@ -8,9 +8,9 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ultralisk.indicators import IndicatorValues
+    from thesislab.indicators import IndicatorValues
 
-from ultralisk.domain import ClosedPosition, Position
+from thesislab.domain import ClosedPosition, Position
 
 
 @dataclass

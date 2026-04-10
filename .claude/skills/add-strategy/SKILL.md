@@ -1,15 +1,15 @@
 ---
 name: add-strategy
-description: Add a new options trading strategy to the Ultralisk backtesting engine. Use when the user wants to create or implement a new strategy.
+description: Add a new options trading strategy to the ThesisLab backtesting engine. Use when the user wants to create or implement a new strategy.
 ---
 
 When adding a new strategy:
 
-1. Create a new file in `ultralisk/strategies/` following the Strategy protocol:
+1. Create a new file in `thesislab/strategies/` following the Strategy protocol:
 
 ```python
 from dataclasses import dataclass
-from ultralisk.domain import Leg, OptionType, OptionsChain, Position, Trade
+from thesislab.domain import Leg, OptionType, OptionsChain, Position, Trade
 
 @dataclass
 class MyStrategy:
@@ -25,7 +25,7 @@ class MyStrategy:
         ...
 ```
 
-2. Register it in `ultralisk/strategies/__init__.py`:
+2. Register it in `thesislab/strategies/__init__.py`:
    - Import the class
    - Add to `STRATEGY_REGISTRY`
 

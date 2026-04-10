@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from ultralisk.domain import ClosedPosition, Leg, OptionsChain, Position, Trade
+from thesislab.domain import ClosedPosition, Leg, OptionsChain, Position, Trade
 
 
 MULTIPLIER = 100  # standard options multiplier
@@ -105,7 +105,7 @@ class Portfolio:
 
     def _intrinsic_value(self, leg: Leg, underlying_price: float) -> float:
         """Calculate intrinsic value when contract isn't in the chain."""
-        from ultralisk.domain import OptionType
+        from thesislab.domain import OptionType
 
         contract = leg.contract
         if contract.option_type == OptionType.CALL:

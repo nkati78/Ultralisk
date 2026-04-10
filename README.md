@@ -1,4 +1,4 @@
-# Ultralisk
+# ThesisLab
 
 Options trading backtesting tool. Test different options strategies against historical data.
 
@@ -15,7 +15,7 @@ Options trading backtesting tool. Test different options strategies against hist
 ## Usage
 
 ```bash
-python -m ultralisk.cli \
+python -m thesislab.cli \
   --ticker AAPL \
   --start 2023-01-01 \
   --end 2024-01-01 \
@@ -26,7 +26,7 @@ python -m ultralisk.cli \
 
 Multiple strategies:
 ```bash
-python -m ultralisk.cli \
+python -m thesislab.cli \
   --ticker SPY \
   --start 2023-01-01 \
   --end 2024-01-01 \

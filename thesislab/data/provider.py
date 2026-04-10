@@ -3,7 +3,7 @@
 from datetime import date
 from typing import Protocol
 
-from ultralisk.domain import OptionsChain
+from thesislab.domain import OptionsChain
 
 
 class DataProvider(Protocol):

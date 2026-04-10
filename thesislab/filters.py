@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import time
 
-from ultralisk.indicators import IndicatorValues
+from thesislab.indicators import IndicatorValues
 
 
 @dataclass

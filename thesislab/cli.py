@@ -4,16 +4,16 @@ import argparse
 import sys
 from datetime import datetime
 
-from ultralisk.analytics.report import print_summary
-from ultralisk.data.csv_provider import CsvDataProvider
-from ultralisk.engine.backtester import Backtester, BacktestConfig
-from ultralisk.strategies import STRATEGY_REGISTRY
-from ultralisk.strategies.vertical_spread import SpreadDirection
+from thesislab.analytics.report import print_summary
+from thesislab.data.csv_provider import CsvDataProvider
+from thesislab.engine.backtester import Backtester, BacktestConfig
+from thesislab.strategies import STRATEGY_REGISTRY
+from thesislab.strategies.vertical_spread import SpreadDirection
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="ultralisk",
+        prog="thesislab",
         description="Options trading backtesting tool",
     )
     parser.add_argument("--ticker", "-t", required=True, help="Underlying ticker symbol (e.g., AAPL)")

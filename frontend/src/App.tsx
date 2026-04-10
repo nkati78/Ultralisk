@@ -4,7 +4,6 @@ import { AdvancedSettings } from './components/AdvancedSettings';
 import { MetricCard } from './components/MetricCard';
 import { EquityChart } from './components/EquityChart';
 import { PriceChart } from './components/PriceChart';
-import { RSIChart } from './components/RSIChart';
 import { TradeLog } from './components/TradeLog';
 import { InfoTip } from './components/InfoTip';
 import { runBacktest } from './lib/api';
@@ -196,84 +195,70 @@ function App() {
           <section>
             <h2 className="section-title">Results</h2>
 
-            {/* Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-              <MetricCard label="Total Return" value={formatPct(result.total_return_pct)}
-                positive={result.total_return_pct >= 0} />
-              <MetricCard label="Total P&L" value={formatCurrency(result.total_pnl)}
-                positive={result.total_pnl >= 0} />
-              <MetricCard label="Win Rate" value={`${result.win_rate.toFixed(1)}%`}
-                positive={result.win_rate >= 50} />
-              <MetricCard label="Total Trades" value={`${result.total_trades}`} />
-              <MetricCard label="Max Drawdown" value={`${result.max_drawdown_pct.toFixed(2)}%`}
-                positive={false} />
-              <MetricCard label="Sharpe Ratio" value={result.sharpe_ratio.toFixed(2)}
-                positive={result.sharpe_ratio >= 0} />
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <MetricCard label="Annualized Return" value={formatPct(result.annualized_return)}
-                positive={result.annualized_return >= 0} />
-              <MetricCard label="Avg P&L/Trade" value={formatCurrency(result.avg_pnl_per_trade)}
-                positive={result.avg_pnl_per_trade >= 0} />
-              <MetricCard label="Avg Holding Days" value={result.avg_holding_days.toFixed(1)} />
-              <MetricCard label="Profit Factor" value={
-                result.profit_factor >= 9999 ? '∞' : result.profit_factor.toFixed(2)
-              } positive={result.profit_factor >= 1} />
-            </div>
-
-            {/* Equity Curve */}
-            <div className="card mb-6">
-              <h3 className="card-title">Equity Curve</h3>
-              <p className="text-xs text-gray-400 mb-3">
-                Your portfolio's total value over time, including cash and open positions.
-                A rising curve means the strategy is growing capital; dips represent drawdowns.
-              </p>
-              <EquityChart data={result.equity_curve} />
-            </div>
-
-            {/* Price + Indicators */}
-            {result.indicators.length > 0 && (
-              <div className="card mb-6">
-                <h3 className="card-title">Price & Indicators</h3>
-                <p className="text-xs text-gray-400 mb-3">
-                  Underlying price with optional technical indicator overlays.
-                </p>
-                <PriceChart data={result.indicators} />
-              </div>
-            )}
-
-            {/* RSI */}
-            {result.indicators.some((d) => d.rsi_14 !== null) && (
-              <div className="card mb-6">
-                <h3 className="card-title">RSI (14-period)</h3>
-                <p className="text-xs text-gray-400 mb-1">
-                  Relative Strength Index measures momentum on a 0-100 scale.
-                </p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 mb-3">
-                  <span><span className="inline-block w-3 h-0.5 mr-1 align-middle" style={{ backgroundColor: '#1DE9B6' }} />RSI</span>
-                  <span><span className="inline-block w-3 h-0.5 bg-red-500/60 mr-1 align-middle" style={{ borderTop: '1px dashed' }} />Overbought (70)</span>
-                  <span><span className="inline-block w-3 h-0.5 mr-1 align-middle" style={{ backgroundColor: 'rgba(29,233,182,0.6)', borderTop: '1px dashed' }} />Oversold (30)</span>
+            <div className="flex gap-6">
+              {/* Left column: Charts + Trade Log */}
+              <div className="flex-1 min-w-0">
+                {/* Equity Curve */}
+                <div className="card mb-6">
+                  <h3 className="card-title">Equity Curve</h3>
+                  <p className="text-xs text-gray-400 mb-3">
+                    Your portfolio's total value over time, including cash and open positions.
+                    A rising curve means the strategy is growing capital; dips represent drawdowns.
+                  </p>
+                  <EquityChart data={result.equity_curve} />
                 </div>
-                <RSIChart data={result.indicators} />
-              </div>
-            )}
 
-            {/* Trade Log */}
-            <div className="card mb-6">
-              <h3 className="card-title">Trade Log</h3>
-              <p className="text-xs text-gray-400 mb-3">
-                Each completed trade with entry/exit dates, P&L, and outcome.
-              </p>
-              <TradeLog trades={result.trades} />
+                {/* Price + Indicators + RSI */}
+                {result.indicators.length > 0 && (
+                  <div className="card mb-6">
+                    <h3 className="card-title">Price & Indicators</h3>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Underlying price with optional technical indicator overlays.
+                    </p>
+                    <PriceChart data={result.indicators} />
+                  </div>
+                )}
+
+                {/* Trade Log */}
+                <div className="card mb-6">
+                  <h3 className="card-title">Trade Log</h3>
+                  <p className="text-xs text-gray-400 mb-3">
+                    Each completed trade with entry/exit dates, P&L, and outcome.
+                  </p>
+                  <TradeLog trades={result.trades} />
+                </div>
+
+                {/* Open Positions */}
+                {result.open_positions_count > 0 && (
+                  <div className="card">
+                    <h3 className="card-title">Open Positions: {result.open_positions_count}</h3>
+                  </div>
+                )}
+              </div>
+
+              {/* Right column: Metrics */}
+              <div className="w-64 shrink-0 space-y-3">
+                <MetricCard label="Total Return" value={formatPct(result.total_return_pct)}
+                  positive={result.total_return_pct >= 0} />
+                <MetricCard label="Total P&L" value={formatCurrency(result.total_pnl)}
+                  positive={result.total_pnl >= 0} />
+                <MetricCard label="Win Rate" value={`${result.win_rate.toFixed(1)}%`}
+                  positive={result.win_rate >= 50} />
+                <MetricCard label="Total Trades" value={`${result.total_trades}`} />
+                <MetricCard label="Max Drawdown" value={`${result.max_drawdown_pct.toFixed(2)}%`}
+                  positive={false} />
+                <MetricCard label="Sharpe Ratio" value={result.sharpe_ratio.toFixed(2)}
+                  positive={result.sharpe_ratio >= 0} />
+                <MetricCard label="Annualized Return" value={formatPct(result.annualized_return)}
+                  positive={result.annualized_return >= 0} />
+                <MetricCard label="Avg P&L/Trade" value={formatCurrency(result.avg_pnl_per_trade)}
+                  positive={result.avg_pnl_per_trade >= 0} />
+                <MetricCard label="Avg Holding Days" value={result.avg_holding_days.toFixed(1)} />
+                <MetricCard label="Profit Factor" value={
+                  result.profit_factor >= 9999 ? '∞' : result.profit_factor.toFixed(2)
+                } positive={result.profit_factor >= 1} />
+              </div>
             </div>
-
-            {/* Open Positions */}
-            {result.open_positions_count > 0 && (
-              <div className="card">
-                <h3 className="card-title">Open Positions: {result.open_positions_count}</h3>
-              </div>
-            )}
           </section>
         )}
       </main>

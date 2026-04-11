@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { AdvancedFilters } from '../types/api';
 import { InfoTip } from './InfoTip';
 
@@ -22,231 +21,162 @@ interface Props {
   onChange: (f: AdvancedFilters) => void;
 }
 
-type TabKey = 'time' | 'rsi' | 'bollinger' | 'ma' | 'vwap';
-
 export function AdvancedSettings({ filters, onChange }: Props) {
-  const [tab, setTab] = useState<TabKey>('time');
-
-  const tabs: { key: TabKey; label: string }[] = [
-    { key: 'time', label: 'Time of Day' },
-    { key: 'rsi', label: 'RSI' },
-    { key: 'bollinger', label: 'Bollinger Bands' },
-    { key: 'ma', label: 'SMA / EMA' },
-    { key: 'vwap', label: 'VWAP' },
-  ];
-
   return (
-    <div>
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-[hsl(var(--border))]">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              tab === t.key
-                ? 'border-[hsl(var(--accent))] text-[hsl(var(--accent))]'
-                : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-white'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      {tab === 'time' && (
-        <div>
-          <Toggle label="Enable Time-of-Day Filter" tip="Restrict when trades can be opened or closed based on market hours."
-            checked={filters.time_of_day.enabled}
-            onChange={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, enabled: v } })} />
-          {filters.time_of_day.enabled && (
-            <div className="grid grid-cols-2 gap-6 mt-3">
-              <div>
-                <h4 className="text-sm font-medium text-white mb-2">Entry Window</h4>
-                <Select label="Earliest Entry" value={filters.time_of_day.entry_start} options={TIMES}
-                  labels={TIME_LABELS}
-                  tip="Earliest time of day a new position can be opened."
-                  onChange={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, entry_start: v } })} />
-                <Select label="Latest Entry" value={filters.time_of_day.entry_end} options={TIMES}
-                  labels={TIME_LABELS}
-                  tip="Latest time of day a new position can be opened."
-                  onChange={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, entry_end: v } })} />
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-white mb-2">Exit Window</h4>
-                <Select label="Earliest Exit" value={filters.time_of_day.exit_start} options={TIMES}
-                  labels={TIME_LABELS}
-                  tip="Earliest time of day an existing position can be closed."
-                  onChange={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, exit_start: v } })} />
-                <Select label="Latest Exit" value={filters.time_of_day.exit_end} options={TIMES}
-                  labels={TIME_LABELS}
-                  tip="Latest time of day an existing position can be closed."
-                  onChange={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, exit_end: v } })} />
-              </div>
-            </div>
-          )}
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* Time of Day */}
+      <FilterSection
+        label="Time of Day"
+        tip="Restrict when trades can be opened or closed based on market hours."
+        enabled={filters.time_of_day.enabled}
+        onToggle={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, enabled: v } })}
+      >
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+          <InlineSelect label="Entry Start" value={filters.time_of_day.entry_start} options={TIMES} labels={TIME_LABELS}
+            onChange={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, entry_start: v } })} />
+          <InlineSelect label="Entry End" value={filters.time_of_day.entry_end} options={TIMES} labels={TIME_LABELS}
+            onChange={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, entry_end: v } })} />
+          <InlineSelect label="Exit Start" value={filters.time_of_day.exit_start} options={TIMES} labels={TIME_LABELS}
+            onChange={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, exit_start: v } })} />
+          <InlineSelect label="Exit End" value={filters.time_of_day.exit_end} options={TIMES} labels={TIME_LABELS}
+            onChange={(v) => onChange({ ...filters, time_of_day: { ...filters.time_of_day, exit_end: v } })} />
         </div>
-      )}
+      </FilterSection>
 
-      {tab === 'rsi' && (
-        <div>
-          <Toggle label="Enable RSI Filter" tip="Only enter trades when the Relative Strength Index (14-period) is within the specified range."
-            checked={filters.rsi.enabled}
-            onChange={(v) => onChange({ ...filters, rsi: { ...filters.rsi, enabled: v } })} />
-          {filters.rsi.enabled && (
-            <div className="grid grid-cols-3 gap-4 mt-3">
-              <div>
-                <label className="label">RSI Min<InfoTip text="Minimum RSI value required to enter a trade. RSI below 30 is typically considered oversold." /></label>
-                <input type="range" min={0} max={100} value={filters.rsi.rsi_min}
-                  onChange={(e) => onChange({ ...filters, rsi: { ...filters.rsi, rsi_min: Number(e.target.value) } })}
-                  className="w-full accent-blue-500" />
-                <span className="text-sm font-mono text-white">{filters.rsi.rsi_min}</span>
-              </div>
-              <div>
-                <label className="label">RSI Max<InfoTip text="Maximum RSI value allowed to enter a trade. RSI above 70 is typically considered overbought." /></label>
-                <input type="range" min={0} max={100} value={filters.rsi.rsi_max}
-                  onChange={(e) => onChange({ ...filters, rsi: { ...filters.rsi, rsi_max: Number(e.target.value) } })}
-                  className="w-full accent-blue-500" />
-                <span className="text-sm font-mono text-white">{filters.rsi.rsi_max}</span>
-              </div>
-              <div>
-                <Select label="RSI Zone" value={filters.rsi.rsi_zone}
-                  options={['any', 'oversold', 'neutral', 'overbought']}
-                  labels={{ any: 'Any', oversold: 'Oversold (< 30)', neutral: 'Neutral (30-70)', overbought: 'Overbought (> 70)' }}
-                  tip="Preset RSI zones. Oversold may signal a bounce, overbought may signal a pullback."
-                  onChange={(v) => onChange({ ...filters, rsi: { ...filters.rsi, rsi_zone: v } })} />
-              </div>
-            </div>
-          )}
+      {/* RSI */}
+      <FilterSection
+        label="RSI"
+        tip="Only enter trades when the Relative Strength Index (14-period) is within the specified range."
+        enabled={filters.rsi.enabled}
+        onToggle={(v) => onChange({ ...filters, rsi: { ...filters.rsi, enabled: v } })}
+      >
+        <div className="grid grid-cols-3 gap-x-3 gap-y-1">
+          <InlineNumber label="Min" value={filters.rsi.rsi_min} min={0} max={100}
+            onChange={(v) => onChange({ ...filters, rsi: { ...filters.rsi, rsi_min: v } })} />
+          <InlineNumber label="Max" value={filters.rsi.rsi_max} min={0} max={100}
+            onChange={(v) => onChange({ ...filters, rsi: { ...filters.rsi, rsi_max: v } })} />
+          <InlineSelect label="Zone" value={filters.rsi.rsi_zone}
+            options={['any', 'oversold', 'neutral', 'overbought']}
+            labels={{ any: 'Any', oversold: 'Oversold', neutral: 'Neutral', overbought: 'Overbought' }}
+            onChange={(v) => onChange({ ...filters, rsi: { ...filters.rsi, rsi_zone: v } })} />
         </div>
-      )}
+      </FilterSection>
 
-      {tab === 'bollinger' && (
-        <div>
-          <Toggle label="Enable Bollinger Bands Filter" tip="Only enter trades when price is at a specific position relative to the Bollinger Bands (20-period, 2 std dev)."
-            checked={filters.bollinger.enabled}
-            onChange={(v) => onChange({ ...filters, bollinger: { ...filters.bollinger, enabled: v } })} />
-          {filters.bollinger.enabled && (
-            <div className="grid grid-cols-2 gap-4 mt-3">
-              <Select label="Price Position" value={filters.bollinger.position}
-                options={['any', 'below_lower', 'lower_half', 'upper_half', 'above_upper']}
-                labels={{ any: 'Any', below_lower: 'Below Lower Band', lower_half: 'Lower Half', upper_half: 'Upper Half', above_upper: 'Above Upper Band' }}
-                tip="Where the current price must be relative to the Bollinger Bands to allow entry."
-                onChange={(v) => onChange({ ...filters, bollinger: { ...filters.bollinger, position: v } })} />
-              <div>
-                <Toggle label="Use %B Range" tip="%B measures where price is within the bands. 0 = lower band, 1 = upper band. Values outside 0-1 mean price is beyond the bands."
-                  checked={filters.bollinger.use_pct_b}
-                  onChange={(v) => onChange({ ...filters, bollinger: { ...filters.bollinger, use_pct_b: v } })} />
-                {filters.bollinger.use_pct_b && (
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div>
-                      <label className="label">%B Min<InfoTip text="Minimum %B value. 0 means price is at the lower band." /></label>
-                      <input type="number" className="input-field" step={0.05}
-                        value={filters.bollinger.pct_b_min}
-                        onChange={(e) => onChange({ ...filters, bollinger: { ...filters.bollinger, pct_b_min: Number(e.target.value) } })} />
-                    </div>
-                    <div>
-                      <label className="label">%B Max<InfoTip text="Maximum %B value. 1 means price is at the upper band." /></label>
-                      <input type="number" className="input-field" step={0.05}
-                        value={filters.bollinger.pct_b_max}
-                        onChange={(e) => onChange({ ...filters, bollinger: { ...filters.bollinger, pct_b_max: Number(e.target.value) } })} />
-                    </div>
-                  </div>
-                )}
+      {/* Bollinger Bands */}
+      <FilterSection
+        label="Bollinger Bands"
+        tip="Only enter trades when price is at a specific position relative to the Bollinger Bands (20-period, 2 std dev)."
+        enabled={filters.bollinger.enabled}
+        onToggle={(v) => onChange({ ...filters, bollinger: { ...filters.bollinger, enabled: v } })}
+      >
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+          <InlineSelect label="Position" value={filters.bollinger.position}
+            options={['any', 'below_lower', 'lower_half', 'upper_half', 'above_upper']}
+            labels={{ any: 'Any', below_lower: 'Below Lower', lower_half: 'Lower Half', upper_half: 'Upper Half', above_upper: 'Above Upper' }}
+            onChange={(v) => onChange({ ...filters, bollinger: { ...filters.bollinger, position: v } })} />
+          <div>
+            <label className="flex items-center gap-1.5 cursor-pointer mb-1">
+              <input type="checkbox" checked={filters.bollinger.use_pct_b}
+                onChange={(e) => onChange({ ...filters, bollinger: { ...filters.bollinger, use_pct_b: e.target.checked } })}
+                className="w-3.5 h-3.5 rounded accent-blue-500" />
+              <span className="text-xs text-gray-300">Use %B</span>
+            </label>
+            {filters.bollinger.use_pct_b && (
+              <div className="grid grid-cols-2 gap-2">
+                <InlineNumber label="Min" value={filters.bollinger.pct_b_min} step={0.05}
+                  onChange={(v) => onChange({ ...filters, bollinger: { ...filters.bollinger, pct_b_min: v } })} />
+                <InlineNumber label="Max" value={filters.bollinger.pct_b_max} step={0.05}
+                  onChange={(v) => onChange({ ...filters, bollinger: { ...filters.bollinger, pct_b_max: v } })} />
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      )}
+      </FilterSection>
 
-      {tab === 'ma' && (
-        <div>
-          <Toggle label="Enable Moving Average Filter" tip="Only enter trades when price is above or below specified moving averages, or when a crossover condition is met."
-            checked={filters.moving_average.enabled}
-            onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, enabled: v } })} />
-          {filters.moving_average.enabled && (
-            <div className="grid grid-cols-2 gap-6 mt-3">
-              <div>
-                <h4 className="text-sm font-medium text-white mb-2">Price vs. Moving Average</h4>
-                <Select label="SMA(20)" value={filters.moving_average.sma_20}
-                  options={['ignore', 'above', 'below']}
-                  labels={{ ignore: 'Ignore', above: 'Price Above', below: 'Price Below' }}
-                  tip="20-day Simple Moving Average. Short-term trend indicator."
-                  onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, sma_20: v } })} />
-                <Select label="SMA(50)" value={filters.moving_average.sma_50}
-                  options={['ignore', 'above', 'below']}
-                  labels={{ ignore: 'Ignore', above: 'Price Above', below: 'Price Below' }}
-                  tip="50-day Simple Moving Average. Medium-term trend indicator."
-                  onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, sma_50: v } })} />
-                <Select label="SMA(200)" value={filters.moving_average.sma_200}
-                  options={['ignore', 'above', 'below']}
-                  labels={{ ignore: 'Ignore', above: 'Price Above', below: 'Price Below' }}
-                  tip="200-day Simple Moving Average. Long-term trend indicator. Price above = bullish, below = bearish."
-                  onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, sma_200: v } })} />
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-white mb-2">EMA & Crossover</h4>
-                <Select label="EMA(9)" value={filters.moving_average.ema_9}
-                  options={['ignore', 'above', 'below']}
-                  labels={{ ignore: 'Ignore', above: 'Price Above', below: 'Price Below' }}
-                  tip="9-day Exponential Moving Average. Reacts quickly to recent price changes."
-                  onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, ema_9: v } })} />
-                <Select label="EMA(21)" value={filters.moving_average.ema_21}
-                  options={['ignore', 'above', 'below']}
-                  labels={{ ignore: 'Ignore', above: 'Price Above', below: 'Price Below' }}
-                  tip="21-day Exponential Moving Average. Slightly slower than EMA(9), useful for confirming short-term trends."
-                  onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, ema_21: v } })} />
-                <Select label="SMA(20) vs SMA(50)"
-                  value={filters.moving_average.sma_cross}
-                  options={['ignore', 'bullish', 'bearish']}
-                  labels={{ ignore: 'Ignore', bullish: 'SMA(20) Above (Bullish)', bearish: 'SMA(20) Below (Bearish)' }}
-                  tip="Moving average crossover signal. Bullish = SMA(20) above SMA(50) (golden cross). Bearish = SMA(20) below SMA(50) (death cross)."
-                  onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, sma_cross: v } })} />
-              </div>
-            </div>
-          )}
+      {/* SMA / EMA */}
+      <FilterSection
+        label="SMA / EMA"
+        tip="Only enter trades when price is above or below specified moving averages, or when a crossover condition is met."
+        enabled={filters.moving_average.enabled}
+        onToggle={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, enabled: v } })}
+      >
+        <div className="grid grid-cols-3 gap-x-3 gap-y-1">
+          <InlineSelect label="SMA(20)" value={filters.moving_average.sma_20}
+            options={['ignore', 'above', 'below']} labels={{ ignore: 'Ignore', above: 'Above', below: 'Below' }}
+            onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, sma_20: v } })} />
+          <InlineSelect label="SMA(50)" value={filters.moving_average.sma_50}
+            options={['ignore', 'above', 'below']} labels={{ ignore: 'Ignore', above: 'Above', below: 'Below' }}
+            onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, sma_50: v } })} />
+          <InlineSelect label="SMA(200)" value={filters.moving_average.sma_200}
+            options={['ignore', 'above', 'below']} labels={{ ignore: 'Ignore', above: 'Above', below: 'Below' }}
+            onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, sma_200: v } })} />
+          <InlineSelect label="EMA(9)" value={filters.moving_average.ema_9}
+            options={['ignore', 'above', 'below']} labels={{ ignore: 'Ignore', above: 'Above', below: 'Below' }}
+            onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, ema_9: v } })} />
+          <InlineSelect label="EMA(21)" value={filters.moving_average.ema_21}
+            options={['ignore', 'above', 'below']} labels={{ ignore: 'Ignore', above: 'Above', below: 'Below' }}
+            onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, ema_21: v } })} />
+          <InlineSelect label="Cross" value={filters.moving_average.sma_cross}
+            options={['ignore', 'bullish', 'bearish']} labels={{ ignore: 'Ignore', bullish: 'Bullish', bearish: 'Bearish' }}
+            onChange={(v) => onChange({ ...filters, moving_average: { ...filters.moving_average, sma_cross: v } })} />
         </div>
-      )}
+      </FilterSection>
 
-      {tab === 'vwap' && (
-        <div>
-          <Toggle label="Enable VWAP Filter" tip="Volume-Weighted Average Price. Only enter trades when price is above or below the VWAP line."
-            checked={filters.vwap.enabled}
-            onChange={(v) => onChange({ ...filters, vwap: { ...filters.vwap, enabled: v } })} />
-          {filters.vwap.enabled && (
-            <Select label="Price vs. VWAP" value={filters.vwap.direction}
-              options={['above', 'below']}
-              labels={{ above: 'Price Above VWAP', below: 'Price Below VWAP' }}
-              tip="Above VWAP suggests bullish intraday sentiment. Below VWAP suggests bearish intraday sentiment."
-              onChange={(v) => onChange({ ...filters, vwap: { ...filters.vwap, direction: v } })} />
-          )}
-        </div>
-      )}
+      {/* VWAP */}
+      <FilterSection
+        label="VWAP"
+        tip="Volume-Weighted Average Price. Only enter trades when price is above or below the VWAP line."
+        enabled={filters.vwap.enabled}
+        onToggle={(v) => onChange({ ...filters, vwap: { ...filters.vwap, enabled: v } })}
+      >
+        <InlineSelect label="Price vs VWAP" value={filters.vwap.direction}
+          options={['above', 'below']} labels={{ above: 'Above', below: 'Below' }}
+          onChange={(v) => onChange({ ...filters, vwap: { ...filters.vwap, direction: v } })} />
+      </FilterSection>
     </div>
   );
 }
 
-function Toggle({ label, tip, checked, onChange }: { label: string; tip?: string; checked: boolean; onChange: (v: boolean) => void }) {
+function FilterSection({ label, tip, enabled, onToggle, children }: {
+  label: string; tip: string; enabled: boolean; onToggle: (v: boolean) => void; children: React.ReactNode;
+}) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4 rounded accent-blue-500" />
-      <span className="text-sm text-white">{label}{tip && <InfoTip text={tip} />}</span>
-    </label>
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+      <label className="flex items-center gap-2 cursor-pointer mb-2">
+        <input type="checkbox" checked={enabled} onChange={(e) => onToggle(e.target.checked)}
+          className="w-3.5 h-3.5 rounded accent-blue-500" />
+        <span className="text-sm font-medium text-white">{label}</span>
+        <InfoTip text={tip} />
+      </label>
+      {enabled && children}
+    </div>
   );
 }
 
-function Select({ label, value, options, labels, tip, onChange }: {
+function InlineSelect({ label, value, options, labels, onChange }: {
   label: string; value: string; options: string[];
-  labels?: Record<string, string>; tip?: string; onChange: (v: string) => void;
+  labels?: Record<string, string>; onChange: (v: string) => void;
 }) {
   return (
-    <div className="mb-2">
-      <label className="label">{label}{tip && <InfoTip text={tip} />}</label>
-      <select className="input-field" value={value} onChange={(e) => onChange(e.target.value)}>
+    <div className="mb-1">
+      <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-0.5">{label}</label>
+      <select className="input-field !py-1 !text-xs" value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o} value={o}>{labels?.[o] ?? o}</option>)}
       </select>
+    </div>
+  );
+}
+
+function InlineNumber({ label, value, onChange, min, max, step }: {
+  label: string; value: number; onChange: (v: number) => void;
+  min?: number; max?: number; step?: number;
+}) {
+  return (
+    <div className="mb-1">
+      <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-0.5">{label}</label>
+      <input type="number" className="input-field !py-1 !text-xs" value={value}
+        min={min} max={max} step={step}
+        onChange={(e) => onChange(Number(e.target.value))} />
     </div>
   );
 }

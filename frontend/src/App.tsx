@@ -28,12 +28,13 @@ function App() {
     close_at_loss_pct: 2.0, close_at_dte: 7, put_delta: -0.2, wing_width: 5,
   });
   const [filters, setFilters] = useState<AdvancedFilters>({
-    time_of_day: { enabled: false, entry_start: '09:30', entry_end: '16:00', exit_start: '09:30', exit_end: '16:00' },
-    rsi: { enabled: false, rsi_min: 20, rsi_max: 80, rsi_zone: 'any' },
-    bollinger: { enabled: false, position: 'any', use_pct_b: false, pct_b_min: 0, pct_b_max: 0.2 },
-    moving_average: { enabled: false, sma_20: 'ignore', sma_50: 'ignore', sma_200: 'ignore', ema_9: 'ignore', ema_21: 'ignore', sma_cross: 'ignore' },
-    vwap: { enabled: false, direction: 'above' },
+    time_of_day: { enabled: true, entry_start: '09:30', entry_end: '16:00', exit_start: '09:30', exit_end: '16:00' },
+    rsi: { enabled: true, rsi_min: 20, rsi_max: 80, rsi_zone: 'any' },
+    bollinger: { enabled: true, position: 'any', use_pct_b: false, pct_b_min: 0, pct_b_max: 0.2 },
+    moving_average: { enabled: true, sma_20: 'ignore', sma_50: 'ignore', sma_200: 'ignore', ema_9: 'ignore', ema_21: 'ignore', sma_cross: 'ignore' },
+    vwap: { enabled: true, direction: 'above' },
   });
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [syntheticConfig, setSyntheticConfig] = useState<SyntheticDataConfig>({
     start_price: 450, daily_drift: 0.0003, base_iv: 0.25, seed: 42,
   });
@@ -166,10 +167,18 @@ function App() {
 
         {/* Advanced Settings */}
         <section className="mb-8">
-          <h2 className="section-title">Advanced Settings</h2>
-          <div className="card">
-            <AdvancedSettings filters={filters} onChange={setFilters} />
-          </div>
+          <button
+            onClick={() => setAdvancedOpen((o) => !o)}
+            className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <span className={`transition-transform ${advancedOpen ? 'rotate-90' : ''}`}>&#9654;</span>
+            Advanced Settings
+          </button>
+          {advancedOpen && (
+            <div className="card">
+              <AdvancedSettings filters={filters} onChange={setFilters} />
+            </div>
+          )}
         </section>
 
         {/* Run Button */}

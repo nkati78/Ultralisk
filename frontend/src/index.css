@@ -57,6 +57,7 @@ body {
   font-weight: 700;
   color: white;
   margin-bottom: 1rem;
+  padding-left: 16px;
 }
 
 .input-field {

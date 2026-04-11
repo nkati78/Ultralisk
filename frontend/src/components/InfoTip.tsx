@@ -17,9 +17,9 @@ export function InfoTip({ text }: Props) {
         i
       </span>
       {show && (
-        <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 px-3 py-2 rounded-lg bg-gray-900 border border-white/10 text-xs text-gray-300 leading-relaxed shadow-xl pointer-events-none normal-case tracking-normal font-normal">
+        <span className="absolute z-50 bottom-full left-0 mb-1.5 w-56 px-3 py-2 rounded-lg bg-gray-900 border border-white/10 text-xs text-gray-300 leading-relaxed shadow-xl pointer-events-none normal-case tracking-normal font-normal">
           {text}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+          <span className="absolute top-full left-3 border-4 border-transparent border-t-gray-900" />
         </span>
       )}
     </span>

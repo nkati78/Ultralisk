@@ -71,8 +71,8 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-[hsl(var(--border))] px-6 py-4 flex items-center gap-3">
-        <span className="text-[hsl(var(--accent))] text-2xl">&#9670;</span>
+      <header className="px-6 py-4 flex items-center gap-3" style={{ background: 'linear-gradient(to right, #12E5CD, #12BAE6)' }}>
+        <img src="/XL logo transparent.png" alt="ThesisLab" className="w-8 h-8" />
         <h1 className="text-xl font-bold text-white tracking-tight">ThesisLab</h1>
       </header>
 

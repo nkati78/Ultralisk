@@ -179,7 +179,7 @@ function App() {
             </div>
 
             {/* Divider */}
-            <div className="border-t border-white/[0.06] mb-5" />
+            <div className="border-t border-white/[0.06]" style={{ marginBottom: '2rem', marginTop: '0.5rem' }} />
 
             {/* Row 2: Single-leg options */}
             <div style={{ marginBottom: '2.5rem' }}>

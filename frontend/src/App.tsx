@@ -134,9 +134,9 @@ function App() {
         <h1 className="text-xl font-bold text-white tracking-tight">ThesisLab</h1>
       </header>
 
-      <main className="p-6">
+      <main className="p-6" style={{ paddingTop: '1.5rem' }}>
         {/* ── Step 1: Strategy & Market ── */}
-        <section className="mb-6">
+        <section style={{ marginBottom: '1.5rem' }}>
           <h2 className="section-title">
             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">1</span>
             Strategy
@@ -208,7 +208,7 @@ function App() {
         </section>
 
         {/* ── Step 2: Strategy Parameters (adapts to selection) ── */}
-        <section className="mb-6">
+        <section style={{ marginBottom: '1.5rem' }}>
           <h2 className="section-title">
             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">2</span>
             Entry & Exit Rules
@@ -217,7 +217,7 @@ function App() {
         </section>
 
         {/* ── Step 3: Advanced (collapsible) ── */}
-        <section className="mb-6">
+        <section style={{ marginBottom: '1.5rem' }}>
           <button
             onClick={() => setAdvancedOpen((o) => !o)}
             className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"

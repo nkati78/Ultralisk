@@ -5,21 +5,73 @@ import { MetricCard } from './components/MetricCard';
 import { EquityChart } from './components/EquityChart';
 import { PriceChart } from './components/PriceChart';
 import { TradeLog } from './components/TradeLog';
-import { InfoTip } from './components/InfoTip';
 import { runBacktest } from './lib/api';
 import { formatCurrency, formatPct } from './lib/utils';
 import type {
   StrategyConfig, AdvancedFilters, SyntheticDataConfig, BacktestResponse,
 } from './types/api';
 
-const STRATEGIES = [
-  { key: 'short_put_spread', name: 'Short Put Vertical Spread' },
-  { key: 'short_call_spread', name: 'Short Call Vertical Spread' },
-  { key: 'covered_call', name: 'Covered Call' },
-  { key: 'protective_put', name: 'Protective Put' },
-  { key: 'iron_condor', name: 'Iron Condor' },
-  { key: 'straddle', name: 'Long Straddle' },
+const SINGLE_LEG = [
+  { key: 'long_call', name: 'Long Call', tag: 'Bullish' },
+  { key: 'long_put', name: 'Long Put', tag: 'Bearish' },
+  { key: 'short_call', name: 'Short Call', tag: 'Bearish' },
+  { key: 'short_put', name: 'Short Put', tag: 'Bullish' },
 ];
+
+const STRATEGIES = [
+  { key: 'short_put_spread', name: 'Short Put Spread', tag: 'Bullish' },
+  { key: 'short_call_spread', name: 'Short Call Spread', tag: 'Bearish' },
+  { key: 'covered_call', name: 'Covered Call', tag: 'Bullish' },
+  { key: 'protective_put', name: 'Protective Put', tag: 'Bearish' },
+  { key: 'iron_condor', name: 'Iron Condor', tag: 'Neutral' },
+  { key: 'straddle', name: 'Long Straddle', tag: 'Directional' },
+];
+
+/* Sensible defaults per strategy type */
+const STRATEGY_DEFAULTS: Record<string, Partial<StrategyConfig>> = {
+  long_call: { min_dte: 30, max_dte: 60, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  long_put: { min_dte: 30, max_dte: 60, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  short_call: { min_dte: 25, max_dte: 45, short_delta: 0.25, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  short_put: { min_dte: 25, max_dte: 45, short_delta: 0.25, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  short_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  short_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  covered_call: { min_dte: 30, max_dte: 45, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 5 },
+  protective_put: { min_dte: 30, max_dte: 60, put_delta: -0.2, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  iron_condor: { min_dte: 30, max_dte: 45, short_delta: 0.15, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  straddle: { min_dte: 20, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+};
+
+const TAG_COLORS: Record<string, string> = {
+  Bullish: 'text-green-400',
+  Bearish: 'text-red-400',
+  Neutral: 'text-yellow-400',
+  Directional: 'text-blue-400',
+};
+
+function StrategyCard({ name, tag, selected, onClick }: {
+  name: string; tag: string; selected: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative flex flex-col items-center gap-1 px-3 py-4 rounded-xl border transition-all text-center ${
+        selected
+          ? 'border-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.08)] shadow-lg shadow-[hsl(var(--accent)/0.15)]'
+          : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.04]'
+      }`}
+    >
+      {selected && (
+        <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[hsl(var(--accent))]" />
+      )}
+      <span className={`text-sm font-semibold ${selected ? 'text-[hsl(var(--accent))]' : 'text-white'}`}>
+        {name}
+      </span>
+      <span className={`text-[10px] ${TAG_COLORS[tag] ?? 'text-gray-500'}`}>
+        {tag.toLowerCase()}
+      </span>
+    </button>
+  );
+}
 
 function App() {
   const [strategy, setStrategy] = useState<StrategyConfig>({
@@ -35,7 +87,7 @@ function App() {
     vwap: { enabled: true, direction: 'above' },
   });
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [syntheticConfig, setSyntheticConfig] = useState<SyntheticDataConfig>({
+  const [syntheticConfig] = useState<SyntheticDataConfig>({
     start_price: 450, daily_drift: 0.0003, base_iv: 0.25, seed: 42,
   });
   const [ticker, setTicker] = useState('AAPL');
@@ -46,6 +98,11 @@ function App() {
   const [result, setResult] = useState<BacktestResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleStrategyChange = (key: string) => {
+    const defaults = STRATEGY_DEFAULTS[key] ?? {};
+    setStrategy({ ...strategy, type: key, ...defaults });
+  };
 
   const handleRun = async () => {
     setIsLoading(true);
@@ -78,111 +135,106 @@ function App() {
       </header>
 
       <main className="p-6">
-        {/* Setup */}
-        <section className="mb-8">
-          <h2 className="section-title">Setup</h2>
+        {/* ── Step 1: Strategy & Market ── */}
+        <section className="mb-6">
+          <h2 className="section-title">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">1</span>
+            Strategy
+          </h2>
           <div className="card">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
-              {/* Group 1: Strategy, Ticker, Starting Price */}
-              <div className="space-y-3">
-                <div>
-                  <label className="label">Strategy<InfoTip text="The options strategy to backtest. Each strategy has different risk/reward characteristics." /></label>
-                  <select
-                    className="input-field"
-                    value={strategy.type}
-                    onChange={(e) => setStrategy({ ...strategy, type: e.target.value })}
-                  >
-                    {STRATEGIES.map((s) => (
-                      <option key={s.key} value={s.key}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Ticker<InfoTip text="The stock or ETF symbol (e.g. AAPL, SPY, QQQ)." /></label>
-                  <input className="input-field" value={ticker}
-                    onChange={(e) => setTicker(e.target.value.toUpperCase())} />
-                </div>
-                <div>
-                  <label className="label">Starting Price ($)<InfoTip text="Synthetic data: underlying price on day one." /></label>
-                  <input type="number" className="input-field" value={syntheticConfig.start_price}
-                    onChange={(e) => setSyntheticConfig({ ...syntheticConfig, start_price: Number(e.target.value) })} />
-                </div>
+            {/* Row 1: Symbol, Start Date, End Date, Cash, Commission */}
+            <div className="flex flex-wrap items-end gap-4 mb-6">
+              <div className="w-24">
+                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Symbol</label>
+                <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
+                  placeholder="SPY"
+                  onChange={(e) => setTicker(e.target.value.toUpperCase())} />
               </div>
-
-              {/* Group 2: Starting Cash, Commission */}
-              <div className="space-y-3">
-                <div>
-                  <label className="label">Starting Cash ($)<InfoTip text="Total capital available at the start of the backtest." /></label>
-                  <input type="number" className="input-field" value={startingCash}
+              <div className="w-40">
+                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Start Date</label>
+                <input type="date" className="input-field" value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div className="w-40">
+                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">End Date</label>
+                <input type="date" className="input-field" value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+              <div className="w-32">
+                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Starting Cash</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                  <input type="number" className="input-field !pl-7" value={startingCash}
                     onChange={(e) => setStartingCash(Number(e.target.value))} />
                 </div>
-                <div>
-                  <label className="label">Commission ($)<InfoTip text="Broker fee per options contract. Applied to opens and closes." /></label>
-                  <input type="number" className="input-field" step="0.05" value={commission}
+              </div>
+              <div className="w-24">
+                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Commission</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                  <input type="number" className="input-field !pl-7" step="0.05" min="0" value={commission}
                     onChange={(e) => setCommission(Number(e.target.value))} />
                 </div>
               </div>
+            </div>
 
-              {/* Group 3: Start Date, End Date */}
-              <div className="space-y-3">
-                <div>
-                  <label className="label">Start Date<InfoTip text="The first trading date to include in the backtest." /></label>
-                  <input type="date" className="input-field" value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">End Date<InfoTip text="The last trading date to include in the backtest." /></label>
-                  <input type="date" className="input-field" value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)} />
-                </div>
+            {/* Divider */}
+            <div className="border-t border-white/[0.06] mb-5" />
+
+            {/* Row 2: Single-leg options */}
+            <div style={{ marginBottom: '2.5rem' }}>
+              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-3">Select a Leg</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
+                {SINGLE_LEG.map((s) => (
+                  <StrategyCard key={s.key} name={s.name} tag={s.tag}
+                    selected={strategy.type === s.key}
+                    onClick={() => handleStrategyChange(s.key)} />
+                ))}
               </div>
+            </div>
 
-              {/* Group 4: Daily Drift, Base IV, Seed */}
-              <div className="space-y-3">
-                <div>
-                  <label className="label">Daily Drift<InfoTip text="Synthetic data: expected daily return. Typical: -0.001 to 0.001." /></label>
-                  <input type="number" className="input-field" step="0.0001" value={syntheticConfig.daily_drift}
-                    onChange={(e) => setSyntheticConfig({ ...syntheticConfig, daily_drift: Number(e.target.value) })} />
-                </div>
-                <div>
-                  <label className="label">Base IV<InfoTip text="Synthetic data: implied volatility for pricing options. Typical: 0.15 to 0.50." /></label>
-                  <input type="number" className="input-field" step="0.01" value={syntheticConfig.base_iv}
-                    onChange={(e) => setSyntheticConfig({ ...syntheticConfig, base_iv: Number(e.target.value) })} />
-                </div>
-                <div>
-                  <label className="label">Seed<InfoTip text="Synthetic data: random seed for reproducibility." /></label>
-                  <input type="number" className="input-field" value={syntheticConfig.seed}
-                    onChange={(e) => setSyntheticConfig({ ...syntheticConfig, seed: Number(e.target.value) })} />
-                </div>
+            {/* Row 3: Multi-leg strategies */}
+            <div className="mb-2">
+              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-3">...or Choose a Strategy</label>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {STRATEGIES.map((s) => (
+                  <StrategyCard key={s.key} name={s.name} tag={s.tag}
+                    selected={strategy.type === s.key}
+                    onClick={() => handleStrategyChange(s.key)} />
+                ))}
               </div>
             </div>
           </div>
         </section>
 
-        {/* Entry & Exit Criteria */}
-        <section className="mb-8">
-          <h2 className="section-title">Entry & Exit Criteria</h2>
+        {/* ── Step 2: Strategy Parameters (adapts to selection) ── */}
+        <section className="mb-6">
+          <h2 className="section-title">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">2</span>
+            Entry & Exit Rules
+          </h2>
           <StrategyPanel strategy={strategy} onChange={setStrategy} />
         </section>
 
-        {/* Advanced Settings */}
-        <section className="mb-8">
+        {/* ── Step 3: Advanced (collapsible) ── */}
+        <section className="mb-6">
           <button
             onClick={() => setAdvancedOpen((o) => !o)}
             className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
           >
-            <span className={`transition-transform ${advancedOpen ? 'rotate-90' : ''}`}>&#9654;</span>
-            Advanced Settings
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/[0.08] text-[10px] font-bold text-gray-400">3</span>
+            <span className={`text-xs transition-transform ${advancedOpen ? 'rotate-90' : ''}`}>&#9654;</span>
+            Advanced Filters
           </button>
           {advancedOpen && (
-            <div className="card">
+            <div className="card mt-2">
               <AdvancedSettings filters={filters} onChange={setFilters} />
             </div>
           )}
         </section>
 
-        {/* Run Button */}
-        <div className="mb-8 flex justify-center" style={{ marginTop: '32px' }}>
+        {/* ── Run ── */}
+        <div className="mb-8 flex justify-center">
           <button
             onClick={handleRun}
             disabled={isLoading}

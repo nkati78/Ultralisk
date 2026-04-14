@@ -19,12 +19,16 @@ const SINGLE_LEG = [
 ];
 
 const STRATEGIES = [
-  { key: 'short_put_spread', name: 'Short Put Spread', tag: 'Bullish' },
-  { key: 'short_call_spread', name: 'Short Call Spread', tag: 'Bearish' },
-  { key: 'covered_call', name: 'Covered Call', tag: 'Bullish' },
-  { key: 'protective_put', name: 'Protective Put', tag: 'Bearish' },
-  { key: 'iron_condor', name: 'Iron Condor', tag: 'Neutral' },
+  { key: 'debit_call_spread', name: 'Debit Call Spread', tag: 'Bullish' },
+  { key: 'debit_put_spread', name: 'Debit Put Spread', tag: 'Bearish' },
+  { key: 'short_put_spread', name: 'Credit Put Spread', tag: 'Bullish' },
+  { key: 'short_call_spread', name: 'Credit Call Spread', tag: 'Bearish' },
+  { key: 'iron_condor', name: 'Short Iron Condor', tag: 'Neutral' },
+  { key: 'long_iron_condor', name: 'Long Iron Condor', tag: 'Directional' },
   { key: 'straddle', name: 'Long Straddle', tag: 'Directional' },
+  { key: 'short_straddle', name: 'Short Straddle', tag: 'Neutral' },
+  { key: 'long_strangle', name: 'Long Strangle', tag: 'Directional' },
+  { key: 'short_strangle', name: 'Short Strangle', tag: 'Neutral' },
 ];
 
 /* Sensible defaults per strategy type */
@@ -35,10 +39,14 @@ const STRATEGY_DEFAULTS: Record<string, Partial<StrategyConfig>> = {
   short_put: { min_dte: 25, max_dte: 45, short_delta: 0.25, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
   short_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
   short_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  covered_call: { min_dte: 30, max_dte: 45, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 5 },
-  protective_put: { min_dte: 30, max_dte: 60, put_delta: -0.2, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  debit_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  debit_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
   iron_condor: { min_dte: 30, max_dte: 45, short_delta: 0.15, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  long_iron_condor: { min_dte: 30, max_dte: 45, short_delta: 0.15, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
   straddle: { min_dte: 20, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  short_straddle: { min_dte: 20, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  long_strangle: { min_dte: 25, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  short_strangle: { min_dte: 25, max_dte: 45, short_delta: 0.15, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
 };
 
 const TAG_COLORS: Record<string, string> = {
@@ -54,7 +62,8 @@ function StrategyCard({ name, tag, selected, onClick }: {
   return (
     <button
       onClick={onClick}
-      className={`relative flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-md border transition-all text-center ${
+      style={{ minWidth: '9rem', minHeight: '3.5rem' }}
+      className={`relative flex flex-col items-center justify-center gap-0.5 px-5 py-3 rounded-md border transition-all text-center ${
         selected
           ? 'border-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.08)] shadow-lg shadow-[hsl(var(--accent)/0.15)]'
           : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.04]'
@@ -184,7 +193,7 @@ function App() {
             {/* Row 2: Single-leg options */}
             <div style={{ marginBottom: '2.5rem' }}>
               <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-3">Select a Leg</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3">
+              <div className="flex flex-wrap gap-3">
                 {SINGLE_LEG.map((s) => (
                   <StrategyCard key={s.key} name={s.name} tag={s.tag}
                     selected={strategy.type === s.key}
@@ -196,7 +205,7 @@ function App() {
             {/* Row 3: Multi-leg strategies */}
             <div className="mb-2">
               <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-3">...or Choose a Strategy</label>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="flex flex-wrap gap-3">
                 {STRATEGIES.map((s) => (
                   <StrategyCard key={s.key} name={s.name} tag={s.tag}
                     selected={strategy.type === s.key}

@@ -49,6 +49,9 @@ const STRATEGY_DEFAULTS: Record<string, Partial<StrategyConfig>> = {
   short_strangle: { min_dte: 25, max_dte: 45, short_delta: 0.15, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
 };
 
+const ALL_STRATEGIES = [...SINGLE_LEG, ...STRATEGIES];
+const STRATEGY_NAME_MAP: Record<string, string> = Object.fromEntries(ALL_STRATEGIES.map((s) => [s.key, s.name]));
+
 const TAG_COLORS: Record<string, string> = {
   Bullish: 'text-green-400',
   Bearish: 'text-red-400',
@@ -124,37 +127,41 @@ function App() {
   };
 
   /* ── Summary chip helpers ── */
-  const strategySummary = (): string[] => {
-    const chips: string[] = [];
-    chips.push(`${strategy.min_dte}–${strategy.max_dte} DTE`);
+  type Chip = { label: string; value: string };
+
+  const strategySummary = (): Chip[] => {
+    const chips: Chip[] = [];
+    chips.push({ label: 'Strategy', value: STRATEGY_NAME_MAP[strategy.type] ?? strategy.type });
+    chips.push({ label: 'Expiry', value: `${strategy.min_dte}–${strategy.max_dte} days` });
     if (strategy.type !== 'straddle' && strategy.type !== 'short_straddle' && strategy.type !== 'protective_put') {
-      chips.push(`${strategy.short_delta.toFixed(2)}Δ`);
+      chips.push({ label: 'Delta', value: strategy.short_delta.toFixed(2) });
     }
     if (strategy.type === 'protective_put') {
-      chips.push(`${strategy.put_delta.toFixed(2)}Δ put`);
+      chips.push({ label: 'Put Delta', value: strategy.put_delta.toFixed(2) });
     }
-    chips.push(`${(strategy.close_at_profit_pct * 100).toFixed(0)}% TP`);
+    chips.push({ label: 'Take Profit', value: `${(strategy.close_at_profit_pct * 100).toFixed(0)}%` });
     const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'short_straddle', 'short_strangle'].includes(strategy.type);
-    chips.push(isCredit ? `${strategy.close_at_loss_pct.toFixed(1)}x SL` : `${(strategy.close_at_loss_pct * 100).toFixed(0)}% SL`);
-    chips.push(`Close @ ${strategy.close_at_dte}d`);
+    chips.push({ label: 'Stop Loss', value: isCredit ? `${strategy.close_at_loss_pct.toFixed(1)}x` : `${(strategy.close_at_loss_pct * 100).toFixed(0)}%` });
+    if (strategy.close_at_dte > 0) {
+      chips.push({ label: 'Close Before', value: `${strategy.close_at_dte} DTE` });
+    }
     return chips;
   };
 
-  const filterSummary = (): string[] => {
-    const chips: string[] = [];
-    if (filters.time_of_day.enabled) chips.push(`${filters.time_of_day.entry_start}–${filters.time_of_day.entry_end}`);
-    if (filters.rsi.enabled) chips.push(`RSI ${filters.rsi.rsi_min}–${filters.rsi.rsi_max}`);
-    if (filters.bollinger.enabled) chips.push(`BB: ${filters.bollinger.position.replace('_', ' ')}`);
+  const filterSummary = (): Chip[] => {
+    const chips: Chip[] = [];
+    if (filters.time_of_day.enabled) chips.push({ label: 'Hours', value: `${filters.time_of_day.entry_start}–${filters.time_of_day.entry_end}` });
+    if (filters.rsi.enabled) chips.push({ label: 'RSI', value: `${filters.rsi.rsi_min}–${filters.rsi.rsi_max}` });
+    if (filters.bollinger.enabled) chips.push({ label: 'Bollinger', value: filters.bollinger.position.replace(/_/g, ' ') });
     if (filters.moving_average.enabled) {
       const active = [
         filters.moving_average.sma_20 !== 'ignore' && `SMA20 ${filters.moving_average.sma_20}`,
         filters.moving_average.sma_50 !== 'ignore' && `SMA50 ${filters.moving_average.sma_50}`,
         filters.moving_average.sma_200 !== 'ignore' && `SMA200 ${filters.moving_average.sma_200}`,
       ].filter(Boolean);
-      if (active.length) chips.push(active.join(', '));
-      else chips.push('MA enabled');
+      chips.push({ label: 'Moving Avg', value: active.length ? active.join(', ') : 'Enabled' });
     }
-    if (filters.vwap.enabled) chips.push(`VWAP ${filters.vwap.direction}`);
+    if (filters.vwap.enabled) chips.push({ label: 'VWAP', value: `Price ${filters.vwap.direction}` });
     return chips;
   };
 
@@ -318,22 +325,24 @@ function App() {
             <div className="card" style={{ marginBottom: '1rem', padding: '1rem 1.25rem' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <div>
-                  <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Strategy Rules</span>
+                  <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', display: 'block', marginBottom: '8px' }}>Your Backtest</span>
                   <div className="flex flex-wrap gap-2">
                     {strategySummary().map((chip) => (
-                      <span key={chip} style={{ fontSize: '12px', padding: '3px 12px', borderRadius: '9999px', backgroundColor: 'rgba(255,255,255,0.08)', color: 'white', border: '1px solid rgba(255,255,255,0.15)', fontWeight: 500 }}>
-                        {chip}
+                      <span key={chip.label} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '9999px', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', display: 'inline-flex', gap: '5px', alignItems: 'center' }}>
+                        <span style={{ color: '#9ca3af', fontWeight: 400 }}>{chip.label}</span>
+                        <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
                       </span>
                     ))}
                   </div>
                 </div>
                 {filterSummary().length > 0 && (
                   <div>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--accent))', display: 'block', marginBottom: '6px' }}>Active Filters</span>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--accent))', display: 'block', marginBottom: '8px' }}>Filters</span>
                     <div className="flex flex-wrap gap-2">
                       {filterSummary().map((chip) => (
-                        <span key={chip} style={{ fontSize: '12px', padding: '3px 12px', borderRadius: '9999px', backgroundColor: 'hsl(var(--accent) / 0.12)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.25)', fontWeight: 500 }}>
-                          {chip}
+                        <span key={chip.label} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '9999px', backgroundColor: 'hsl(var(--accent) / 0.12)', border: '1px solid hsl(var(--accent) / 0.25)', display: 'inline-flex', gap: '5px', alignItems: 'center' }}>
+                          <span style={{ color: 'hsl(var(--accent))', fontWeight: 400 }}>{chip.label}</span>
+                          <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
                         </span>
                       ))}
                     </div>

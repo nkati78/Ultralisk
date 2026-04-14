@@ -62,8 +62,8 @@ function StrategyCard({ name, tag, selected, onClick }: {
   return (
     <button
       onClick={onClick}
-      style={{ minWidth: '9rem', minHeight: '3.5rem' }}
-      className={`relative flex flex-col items-center justify-center gap-0.5 px-5 py-3 rounded-md border transition-all text-center ${
+      style={{ minWidth: '11rem', minHeight: '4.25rem' }}
+      className={`relative flex flex-col items-center justify-center gap-0.5 px-7 py-4 rounded-md border transition-all text-center ${
         selected
           ? 'border-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.08)] shadow-lg shadow-[hsl(var(--accent)/0.15)]'
           : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.04]'
@@ -89,13 +89,16 @@ function App() {
     close_at_loss_pct: 2.0, close_at_dte: 7, put_delta: -0.2, wing_width: 5,
   });
   const [filters, setFilters] = useState<AdvancedFilters>({
-    time_of_day: { enabled: true, entry_start: '09:30', entry_end: '16:00', exit_start: '09:30', exit_end: '16:00' },
-    rsi: { enabled: true, rsi_min: 20, rsi_max: 80, rsi_zone: 'any' },
-    bollinger: { enabled: true, position: 'any', use_pct_b: false, pct_b_min: 0, pct_b_max: 0.2 },
-    moving_average: { enabled: true, sma_20: 'ignore', sma_50: 'ignore', sma_200: 'ignore', ema_9: 'ignore', ema_21: 'ignore', sma_cross: 'ignore' },
-    vwap: { enabled: true, direction: 'above' },
+    time_of_day: { enabled: false, entry_start: '09:30', entry_end: '16:00', exit_start: '09:30', exit_end: '16:00' },
+    rsi: { enabled: false, rsi_min: 20, rsi_max: 80, rsi_zone: 'any' },
+    bollinger: { enabled: false, position: 'any', use_pct_b: false, pct_b_min: 0, pct_b_max: 0.2 },
+    moving_average: { enabled: false, sma_20: 'ignore', sma_50: 'ignore', sma_200: 'ignore', ema_9: 'ignore', ema_21: 'ignore', sma_cross: 'ignore' },
+    vwap: { enabled: false, direction: 'above' },
   });
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const [section3Open, setSection3Open] = useState(true);
+  const [section4Open, setSection4Open] = useState(false);
+
   const [syntheticConfig] = useState<SyntheticDataConfig>({
     start_price: 450, daily_drift: 0.0003, base_iv: 0.25, seed: 42,
   });
@@ -107,10 +110,52 @@ function App() {
   const [result, setResult] = useState<BacktestResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasSelectedStrategy, setHasSelectedStrategy] = useState(false);
 
   const handleStrategyChange = (key: string) => {
-    const defaults = STRATEGY_DEFAULTS[key] ?? {};
-    setStrategy({ ...strategy, type: key, ...defaults });
+    if (strategy.type === key) {
+      setStrategy({ ...strategy, type: '' });
+      setHasSelectedStrategy(false);
+    } else {
+      const defaults = STRATEGY_DEFAULTS[key] ?? {};
+      setStrategy({ ...strategy, type: key, ...defaults });
+      setHasSelectedStrategy(true);
+    }
+  };
+
+  /* ── Summary chip helpers ── */
+  const strategySummary = (): string[] => {
+    const chips: string[] = [];
+    chips.push(`${strategy.min_dte}–${strategy.max_dte} DTE`);
+    if (strategy.type !== 'straddle' && strategy.type !== 'short_straddle' && strategy.type !== 'protective_put') {
+      chips.push(`${strategy.short_delta.toFixed(2)}Δ`);
+    }
+    if (strategy.type === 'protective_put') {
+      chips.push(`${strategy.put_delta.toFixed(2)}Δ put`);
+    }
+    chips.push(`${(strategy.close_at_profit_pct * 100).toFixed(0)}% TP`);
+    const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'short_straddle', 'short_strangle'].includes(strategy.type);
+    chips.push(isCredit ? `${strategy.close_at_loss_pct.toFixed(1)}x SL` : `${(strategy.close_at_loss_pct * 100).toFixed(0)}% SL`);
+    chips.push(`Close @ ${strategy.close_at_dte}d`);
+    return chips;
+  };
+
+  const filterSummary = (): string[] => {
+    const chips: string[] = [];
+    if (filters.time_of_day.enabled) chips.push(`${filters.time_of_day.entry_start}–${filters.time_of_day.entry_end}`);
+    if (filters.rsi.enabled) chips.push(`RSI ${filters.rsi.rsi_min}–${filters.rsi.rsi_max}`);
+    if (filters.bollinger.enabled) chips.push(`BB: ${filters.bollinger.position.replace('_', ' ')}`);
+    if (filters.moving_average.enabled) {
+      const active = [
+        filters.moving_average.sma_20 !== 'ignore' && `SMA20 ${filters.moving_average.sma_20}`,
+        filters.moving_average.sma_50 !== 'ignore' && `SMA50 ${filters.moving_average.sma_50}`,
+        filters.moving_average.sma_200 !== 'ignore' && `SMA200 ${filters.moving_average.sma_200}`,
+      ].filter(Boolean);
+      if (active.length) chips.push(active.join(', '));
+      else chips.push('MA enabled');
+    }
+    if (filters.vwap.enabled) chips.push(`VWAP ${filters.vwap.direction}`);
+    return chips;
   };
 
   const handleRun = async () => {
@@ -144,15 +189,14 @@ function App() {
       </header>
 
       <main className="p-6" style={{ paddingTop: '1.5rem' }}>
-        {/* ── Step 1: Strategy & Market ── */}
+        {/* ── Step 1: Backtest Details ── */}
         <section style={{ marginBottom: '1.5rem' }}>
           <h2 className="section-title">
             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">1</span>
-            Strategy
+            Backtest Details
           </h2>
           <div className="card">
-            {/* Row 1: Symbol, Start Date, End Date, Cash, Commission */}
-            <div className="flex flex-wrap items-end gap-4 mb-6">
+            <div className="flex flex-wrap items-end gap-4">
               <div className="w-24">
                 <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Symbol</label>
                 <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
@@ -186,14 +230,20 @@ function App() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Divider */}
-            <div className="border-t border-white/[0.06]" style={{ marginBottom: '2rem', marginTop: '0.5rem' }} />
-
-            {/* Row 2: Single-leg options */}
+        {/* ── Step 2: Strategy ── */}
+        <section style={{ marginBottom: '1.5rem' }}>
+          <h2 className="section-title">
+            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${hasSelectedStrategy ? 'bg-[hsl(var(--accent))] text-[hsl(var(--primary-foreground))]' : 'bg-white/[0.08] text-gray-400'}`}>2</span>
+            Strategy
+          </h2>
+          <div className="card">
+            {/* Single-leg options */}
             <div style={{ marginBottom: '2.5rem' }}>
-              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-3">Select a Leg</label>
-              <div className="flex flex-wrap gap-3">
+              <h3 className="text-lg font-bold text-white mb-3 text-center">Select a Leg</h3>
+              <div className="flex flex-wrap gap-3 justify-center">
                 {SINGLE_LEG.map((s) => (
                   <StrategyCard key={s.key} name={s.name} tag={s.tag}
                     selected={strategy.type === s.key}
@@ -202,10 +252,10 @@ function App() {
               </div>
             </div>
 
-            {/* Row 3: Multi-leg strategies */}
+            {/* Multi-leg strategies */}
             <div className="mb-2">
-              <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-3">...or Choose a Strategy</label>
-              <div className="flex flex-wrap gap-3">
+              <h3 className="text-lg font-bold text-white mb-3 text-center">...or Choose a Strategy</h3>
+              <div className="flex flex-wrap gap-3 justify-center">
                 {STRATEGIES.map((s) => (
                   <StrategyCard key={s.key} name={s.name} tag={s.tag}
                     selected={strategy.type === s.key}
@@ -216,42 +266,102 @@ function App() {
           </div>
         </section>
 
-        {/* ── Step 2: Strategy Parameters (adapts to selection) ── */}
-        <section style={{ marginBottom: '1.5rem' }}>
-          <h2 className="section-title">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">2</span>
-            Entry & Exit Rules
-          </h2>
-          <StrategyPanel strategy={strategy} onChange={setStrategy} />
-        </section>
-
-        {/* ── Step 3: Advanced (collapsible) ── */}
-        <section style={{ marginBottom: '1.5rem' }}>
-          <button
-            onClick={() => setAdvancedOpen((o) => !o)}
-            className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/[0.08] text-[10px] font-bold text-gray-400">3</span>
-            <span className={`text-xs transition-transform ${advancedOpen ? 'rotate-90' : ''}`}>&#9654;</span>
-            Advanced Filters
-          </button>
-          {advancedOpen && (
-            <div className="card mt-2">
-              <AdvancedSettings filters={filters} onChange={setFilters} />
-            </div>
+        {/* ── Step 3: Entry & Exit Rules (collapsible) ── */}
+        <section style={{ marginBottom: '1.5rem' }} className={hasSelectedStrategy ? '' : 'opacity-50'}>
+          {hasSelectedStrategy ? (
+            <button
+              onClick={() => setSection3Open((o) => !o)}
+              className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">3</span>
+              <span className="text-xs transition-transform" style={{ transform: section3Open ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
+              Entry & Exit Rules
+            </button>
+          ) : (
+            <h2 className="section-title">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/[0.08] text-[10px] font-bold text-gray-400">3</span>
+              Entry & Exit Rules
+            </h2>
+          )}
+          {hasSelectedStrategy && section3Open && (
+            <StrategyPanel strategy={strategy} onChange={setStrategy} />
           )}
         </section>
 
-        {/* ── Run ── */}
-        <div className="mb-8 flex justify-center">
-          <button
-            onClick={handleRun}
-            disabled={isLoading}
-            className="w-1/3 py-4 rounded-lg font-bold text-base bg-[hsl(var(--accent))] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-[hsl(var(--primary-foreground))] transition-all"
-          >
-            {isLoading ? 'Running Backtest...' : 'Run Backtest'}
-          </button>
-        </div>
+        {/* ── Step 4: Advanced Filters (collapsible) ── */}
+        <section style={{ marginBottom: '1.5rem' }} className={hasSelectedStrategy ? '' : 'opacity-50'}>
+          {hasSelectedStrategy ? (
+            <button
+              onClick={() => setSection4Open((o) => !o)}
+              className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${filterSummary().length > 0 ? 'bg-[hsl(var(--accent))] text-[hsl(var(--primary-foreground))]' : 'bg-white/[0.08] text-gray-400'}`}>4</span>
+              <span className="text-xs transition-transform" style={{ transform: section4Open ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
+              Advanced Filters
+              <span style={{ fontSize: '12px', fontWeight: 400, color: '#9ca3af', marginLeft: '4px' }}>Optional</span>
+            </button>
+          ) : (
+            <h2 className="section-title">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/[0.08] text-[10px] font-bold text-gray-400">4</span>
+              Advanced Filters
+              <span style={{ fontSize: '12px', fontWeight: 400, color: '#9ca3af', marginLeft: '4px' }}>Optional</span>
+            </h2>
+          )}
+          {hasSelectedStrategy && section4Open && (
+            <AdvancedSettings filters={filters} onChange={setFilters} />
+          )}
+        </section>
+
+        {/* ── Summary chips + Run ── */}
+        {hasSelectedStrategy && (
+          <div style={{ marginBottom: '2rem' }}>
+            <div className="card" style={{ marginBottom: '1rem', padding: '1rem 1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.5rem', flexWrap: 'wrap' }}>
+                <div>
+                  <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', display: 'block', marginBottom: '6px' }}>Strategy Rules</span>
+                  <div className="flex flex-wrap gap-2">
+                    {strategySummary().map((chip) => (
+                      <span key={chip} style={{ fontSize: '12px', padding: '3px 12px', borderRadius: '9999px', backgroundColor: 'rgba(255,255,255,0.08)', color: 'white', border: '1px solid rgba(255,255,255,0.15)', fontWeight: 500 }}>
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {filterSummary().length > 0 && (
+                  <div>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--accent))', display: 'block', marginBottom: '6px' }}>Active Filters</span>
+                    <div className="flex flex-wrap gap-2">
+                      {filterSummary().map((chip) => (
+                        <span key={chip} style={{ fontSize: '12px', padding: '3px 12px', borderRadius: '9999px', backgroundColor: 'hsl(var(--accent) / 0.12)', color: 'hsl(var(--accent))', border: '1px solid hsl(var(--accent) / 0.25)', fontWeight: 500 }}>
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button
+                onClick={handleRun}
+                disabled={isLoading}
+                className="w-1/3 py-4 rounded-lg font-bold text-base bg-[hsl(var(--accent))] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-[hsl(var(--primary-foreground))] transition-all"
+              >
+                {isLoading ? 'Running Backtest...' : 'Run Backtest'}
+              </button>
+            </div>
+          </div>
+        )}
+        {!hasSelectedStrategy && (
+          <div className="mb-8 flex justify-center">
+            <button
+              disabled
+              className="w-1/3 py-4 rounded-lg font-bold text-base opacity-50 cursor-not-allowed bg-[hsl(var(--accent))] text-[hsl(var(--primary-foreground))]"
+            >
+              Run Backtest
+            </button>
+          </div>
+        )}
 
         {/* Error */}
         {error && (

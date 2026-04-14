@@ -141,14 +141,16 @@ function FilterSection({ label, tip, enabled, onToggle, children }: {
   label: string; tip: string; enabled: boolean; onToggle: (v: boolean) => void; children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+    <div className="rounded-lg border p-3" style={{ borderColor: enabled ? 'hsl(var(--accent) / 0.3)' : 'rgba(255,255,255,0.06)', backgroundColor: enabled ? 'hsl(var(--accent) / 0.03)' : 'rgba(255,255,255,0.02)' }}>
       <label className="flex items-center gap-2 cursor-pointer mb-2">
         <input type="checkbox" checked={enabled} onChange={(e) => onToggle(e.target.checked)}
           className="w-3.5 h-3.5 rounded accent-blue-500" />
-        <span className="text-sm font-medium text-white">{label}</span>
+        <span className="text-sm font-medium" style={{ color: enabled ? 'white' : '#9ca3af' }}>{label}</span>
         <InfoTip text={tip} />
       </label>
-      {enabled && children}
+      <div style={{ opacity: enabled ? 1 : 0.4, pointerEvents: enabled ? 'auto' : 'none' }}>
+        {children}
+      </div>
     </div>
   );
 }

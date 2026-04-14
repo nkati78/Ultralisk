@@ -54,7 +54,7 @@ function StrategyCard({ name, tag, selected, onClick }: {
   return (
     <button
       onClick={onClick}
-      className={`relative flex flex-col items-center gap-1 px-3 py-4 rounded-xl border transition-all text-center ${
+      className={`relative flex flex-col items-center gap-0.5 px-3 py-2.5 rounded-md border transition-all text-center ${
         selected
           ? 'border-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.08)] shadow-lg shadow-[hsl(var(--accent)/0.15)]'
           : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.04]'
@@ -66,7 +66,7 @@ function StrategyCard({ name, tag, selected, onClick }: {
       <span className={`text-sm font-semibold ${selected ? 'text-[hsl(var(--accent))]' : 'text-white'}`}>
         {name}
       </span>
-      <span className={`text-[10px] ${TAG_COLORS[tag] ?? 'text-gray-500'}`}>
+      <span className={`text-xs font-medium ${TAG_COLORS[tag] ?? 'text-gray-500'}`}>
         {tag.toLowerCase()}
       </span>
     </button>

@@ -18,17 +18,32 @@ const SINGLE_LEG = [
   { key: 'short_put', name: 'Short Put', tag: 'Bullish' },
 ];
 
-const STRATEGIES = [
-  { key: 'debit_call_spread', name: 'Debit Call Spread', tag: 'Bullish' },
-  { key: 'debit_put_spread', name: 'Debit Put Spread', tag: 'Bearish' },
-  { key: 'short_put_spread', name: 'Credit Put Spread', tag: 'Bullish' },
-  { key: 'short_call_spread', name: 'Credit Call Spread', tag: 'Bearish' },
-  { key: 'iron_condor', name: 'Short Iron Condor', tag: 'Neutral' },
-  { key: 'long_iron_condor', name: 'Long Iron Condor', tag: 'Directional' },
-  { key: 'straddle', name: 'Long Straddle', tag: 'Directional' },
-  { key: 'short_straddle', name: 'Short Straddle', tag: 'Neutral' },
-  { key: 'long_strangle', name: 'Long Strangle', tag: 'Directional' },
-  { key: 'short_strangle', name: 'Short Strangle', tag: 'Neutral' },
+const STRATEGY_GROUPS = [
+  {
+    label: 'Spreads',
+    items: [
+      { key: 'debit_call_spread', name: 'Debit Call Spread', tag: 'Bullish' },
+      { key: 'debit_put_spread', name: 'Debit Put Spread', tag: 'Bearish' },
+      { key: 'short_put_spread', name: 'Credit Put Spread', tag: 'Bullish' },
+      { key: 'short_call_spread', name: 'Credit Call Spread', tag: 'Bearish' },
+    ],
+  },
+  {
+    label: 'Iron Condors',
+    items: [
+      { key: 'iron_condor', name: 'Short Iron Condor', tag: 'Neutral' },
+      { key: 'long_iron_condor', name: 'Long Iron Condor', tag: 'Directional' },
+    ],
+  },
+  {
+    label: 'Straddles & Strangles',
+    items: [
+      { key: 'straddle', name: 'Long Straddle', tag: 'Directional' },
+      { key: 'short_straddle', name: 'Short Straddle', tag: 'Neutral' },
+      { key: 'long_strangle', name: 'Long Strangle', tag: 'Directional' },
+      { key: 'short_strangle', name: 'Short Strangle', tag: 'Neutral' },
+    ],
+  },
 ];
 
 /* Sensible defaults per strategy type */
@@ -49,7 +64,7 @@ const STRATEGY_DEFAULTS: Record<string, Partial<StrategyConfig>> = {
   short_strangle: { min_dte: 25, max_dte: 45, short_delta: 0.15, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
 };
 
-const ALL_STRATEGIES = [...SINGLE_LEG, ...STRATEGIES];
+const ALL_STRATEGIES = [...SINGLE_LEG, ...STRATEGY_GROUPS.flatMap((g) => g.items)];
 const STRATEGY_NAME_MAP: Record<string, string> = Object.fromEntries(ALL_STRATEGIES.map((s) => [s.key, s.name]));
 
 const TAG_COLORS: Record<string, string> = {
@@ -101,6 +116,7 @@ function App() {
 
   const [section3Open, setSection3Open] = useState(true);
   const [section4Open, setSection4Open] = useState(false);
+  const [exitEnabled, setExitEnabled] = useState(false);
 
   const [syntheticConfig] = useState<SyntheticDataConfig>({
     start_price: 450, daily_drift: 0.0003, base_iv: 0.25, seed: 42,
@@ -139,11 +155,15 @@ function App() {
     if (strategy.type === 'protective_put') {
       chips.push({ label: 'Put Delta', value: strategy.put_delta.toFixed(2) });
     }
-    chips.push({ label: 'Take Profit', value: `${(strategy.close_at_profit_pct * 100).toFixed(0)}%` });
-    const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'short_straddle', 'short_strangle'].includes(strategy.type);
-    chips.push({ label: 'Stop Loss', value: isCredit ? `${strategy.close_at_loss_pct.toFixed(1)}x` : `${(strategy.close_at_loss_pct * 100).toFixed(0)}%` });
-    if (strategy.close_at_dte > 0) {
-      chips.push({ label: 'Close Before', value: `${strategy.close_at_dte} DTE` });
+    if (exitEnabled) {
+      chips.push({ label: 'Take Profit', value: `${(strategy.close_at_profit_pct * 100).toFixed(0)}%` });
+      const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'short_straddle', 'short_strangle'].includes(strategy.type);
+      chips.push({ label: 'Stop Loss', value: isCredit ? `${strategy.close_at_loss_pct.toFixed(1)}x` : `${(strategy.close_at_loss_pct * 100).toFixed(0)}%` });
+      if (strategy.close_at_dte > 0) {
+        chips.push({ label: 'Close Before', value: `${strategy.close_at_dte} DTE` });
+      }
+    } else {
+      chips.push({ label: 'Exit', value: 'Hold until expiry' });
     }
     return chips;
   };
@@ -169,13 +189,16 @@ function App() {
     setIsLoading(true);
     setError(null);
     try {
+      const finalStrategy = exitEnabled
+        ? strategy
+        : { ...strategy, close_at_profit_pct: 9999, close_at_loss_pct: 9999, close_at_dte: 0 };
       const res = await runBacktest({
         ticker,
         start_date: startDate,
         end_date: endDate,
         starting_cash: startingCash,
         commission,
-        strategy,
+        strategy: finalStrategy,
         advanced_filters: filters,
         data_source: 'synthetic',
         synthetic_config: syntheticConfig,
@@ -262,13 +285,18 @@ function App() {
             {/* Multi-leg strategies */}
             <div className="mb-2">
               <h3 className="text-lg font-bold text-white mb-3 text-center">...or Choose a Strategy</h3>
-              <div className="flex flex-wrap gap-3 justify-center">
-                {STRATEGIES.map((s) => (
-                  <StrategyCard key={s.key} name={s.name} tag={s.tag}
-                    selected={strategy.type === s.key}
-                    onClick={() => handleStrategyChange(s.key)} />
-                ))}
-              </div>
+              {STRATEGY_GROUPS.map((group) => (
+                <div key={group.label} style={{ marginBottom: '1.25rem' }}>
+                  <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', textAlign: 'center', marginBottom: '8px' }}>{group.label}</p>
+                  <div className="flex flex-wrap gap-3 justify-center">
+                    {group.items.map((s) => (
+                      <StrategyCard key={s.key} name={s.name} tag={s.tag}
+                        selected={strategy.type === s.key}
+                        onClick={() => handleStrategyChange(s.key)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -291,7 +319,7 @@ function App() {
             </h2>
           )}
           {hasSelectedStrategy && section3Open && (
-            <StrategyPanel strategy={strategy} onChange={setStrategy} />
+            <StrategyPanel strategy={strategy} onChange={setStrategy} exitEnabled={exitEnabled} onExitToggle={setExitEnabled} />
           )}
         </section>
 
@@ -319,58 +347,8 @@ function App() {
           )}
         </section>
 
-        {/* ── Summary chips + Run ── */}
-        {hasSelectedStrategy && (
-          <div style={{ marginBottom: '2rem' }}>
-            <div className="card" style={{ marginBottom: '1rem', padding: '1rem 1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.5rem', flexWrap: 'wrap' }}>
-                <div>
-                  <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', display: 'block', marginBottom: '8px' }}>Your Backtest</span>
-                  <div className="flex flex-wrap gap-2">
-                    {strategySummary().map((chip) => (
-                      <span key={chip.label} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '9999px', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', display: 'inline-flex', gap: '5px', alignItems: 'center' }}>
-                        <span style={{ color: '#9ca3af', fontWeight: 400 }}>{chip.label}</span>
-                        <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                {filterSummary().length > 0 && (
-                  <div>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--accent))', display: 'block', marginBottom: '8px' }}>Filters</span>
-                    <div className="flex flex-wrap gap-2">
-                      {filterSummary().map((chip) => (
-                        <span key={chip.label} style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '9999px', backgroundColor: 'hsl(var(--accent) / 0.12)', border: '1px solid hsl(var(--accent) / 0.25)', display: 'inline-flex', gap: '5px', alignItems: 'center' }}>
-                          <span style={{ color: 'hsl(var(--accent))', fontWeight: 400 }}>{chip.label}</span>
-                          <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-center">
-              <button
-                onClick={handleRun}
-                disabled={isLoading}
-                className="w-1/3 py-4 rounded-lg font-bold text-base bg-[hsl(var(--accent))] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-[hsl(var(--primary-foreground))] transition-all"
-              >
-                {isLoading ? 'Running Backtest...' : 'Run Backtest'}
-              </button>
-            </div>
-          </div>
-        )}
-        {!hasSelectedStrategy && (
-          <div className="mb-8 flex justify-center">
-            <button
-              disabled
-              className="w-1/3 py-4 rounded-lg font-bold text-base opacity-50 cursor-not-allowed bg-[hsl(var(--accent))] text-[hsl(var(--primary-foreground))]"
-            >
-              Run Backtest
-            </button>
-          </div>
-        )}
+        {/* Spacer for sticky bottom bar */}
+        <div style={{ height: hasSelectedStrategy ? '120px' : '80px' }} />
 
         {/* Error */}
         {error && (
@@ -451,6 +429,56 @@ function App() {
           </section>
         )}
       </main>
+
+      {/* ── Sticky bottom bar ── */}
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        backgroundColor: 'hsl(220 14% 11% / 0.95)',
+        backdropFilter: 'blur(12px)',
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+        padding: '12px 24px',
+      }}>
+        {hasSelectedStrategy ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', maxWidth: '1400px', margin: '0 auto' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="flex flex-wrap gap-1.5" style={{ alignItems: 'center' }}>
+                {strategySummary().map((chip) => (
+                  <span key={chip.label} style={{ fontSize: '11px', padding: '2px 10px', borderRadius: '9999px', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', display: 'inline-flex', gap: '4px', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                    <span style={{ color: '#9ca3af', fontWeight: 400 }}>{chip.label}</span>
+                    <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
+                  </span>
+                ))}
+                {filterSummary().map((chip) => (
+                  <span key={chip.label} style={{ fontSize: '11px', padding: '2px 10px', borderRadius: '9999px', backgroundColor: 'hsl(var(--accent) / 0.1)', border: '1px solid hsl(var(--accent) / 0.2)', display: 'inline-flex', gap: '4px', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                    <span style={{ color: 'hsl(var(--accent))', fontWeight: 400 }}>{chip.label}</span>
+                    <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={handleRun}
+              disabled={isLoading}
+              style={{ padding: '10px 40px', borderRadius: '8px', fontWeight: 700, fontSize: '14px', backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--primary-foreground))', border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer', opacity: isLoading ? 0.5 : 1, whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              {isLoading ? 'Running...' : 'Run Backtest'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button
+              disabled
+              style={{ padding: '10px 40px', borderRadius: '8px', fontWeight: 700, fontSize: '14px', backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--primary-foreground))', border: 'none', cursor: 'not-allowed', opacity: 0.4 }}
+            >
+              Select a strategy to run
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

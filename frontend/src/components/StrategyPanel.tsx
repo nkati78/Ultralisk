@@ -5,6 +5,8 @@ import { InfoTip } from './InfoTip';
 interface Props {
   strategy: StrategyConfig;
   onChange: (s: StrategyConfig) => void;
+  exitEnabled: boolean;
+  onExitToggle: (v: boolean) => void;
 }
 
 /* ── Presets per strategy "family" ── */
@@ -265,12 +267,11 @@ function Slider({ label, value, min, max, step, help, tip, onChange, format, sna
   );
 }
 
-export function StrategyPanel({ strategy, onChange }: Props) {
+export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle }: Props) {
   const set = (patch: Partial<StrategyConfig>) => onChange({ ...strategy, ...patch });
   const type = strategy.type;
   const presets = getPresets(type);
   const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [exitEnabled, setExitEnabled] = useState(false);
 
   const isSpread = type === 'short_put_spread' || type === 'short_call_spread' || type === 'debit_call_spread' || type === 'debit_put_spread';
   const isIronCondor = type === 'iron_condor' || type === 'long_iron_condor';
@@ -386,7 +387,7 @@ export function StrategyPanel({ strategy, onChange }: Props) {
         {/* Exit Criteria */}
         <div className="card" style={{ borderColor: exitEnabled ? 'hsl(var(--accent) / 0.3)' : undefined, backgroundColor: exitEnabled ? 'hsl(var(--accent) / 0.03)' : undefined }}>
           <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: '0.75rem' }}>
-            <input type="checkbox" checked={exitEnabled} onChange={(e) => setExitEnabled(e.target.checked)}
+            <input type="checkbox" checked={exitEnabled} onChange={(e) => onExitToggle(e.target.checked)}
               className="w-3.5 h-3.5 rounded accent-blue-500" />
             <span className="card-title" style={{ marginBottom: 0, color: exitEnabled ? 'white' : '#9ca3af' }}>Exit Criteria</span>
             <InfoTip text="Rules that trigger closing an open position before expiration. Disable to hold positions until expiration." />

@@ -13,7 +13,7 @@ interface Props {
 type Preset = { label: string; description: string; color: string; activeColor: string; values: Partial<StrategyConfig> };
 
 function getPresets(type: string): Preset[] {
-  const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'iron_butterfly', 'short_straddle', 'short_strangle', 'covered_call', 'cash_secured_put', 'calendar_call_spread', 'calendar_put_spread'].includes(type);
+  const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'iron_butterfly', 'short_straddle', 'short_strangle', 'calendar_call_spread', 'calendar_put_spread'].includes(type);
   const isDebit = ['long_call', 'long_put', 'debit_call_spread', 'debit_put_spread', 'long_call_butterfly', 'long_put_butterfly', 'straddle', 'long_strangle'].includes(type);
 
   if (isCredit) {
@@ -277,7 +277,6 @@ export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle }:
   const isIronCondor = ['iron_condor', 'iron_butterfly', 'long_call_butterfly', 'long_put_butterfly'].includes(type);
   const isProtPut = type === 'protective_put';
   const isStraddle = type === 'straddle' || type === 'short_straddle';
-  const isCovered = type === 'covered_call' || type === 'cash_secured_put';
 
   const applyPreset = (preset: Preset) => {
     if (activePreset === preset.label) {

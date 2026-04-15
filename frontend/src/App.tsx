@@ -20,7 +20,7 @@ const SINGLE_LEG = [
 
 const STRATEGY_GROUPS = [
   {
-    label: 'Spreads',
+    label: 'Vertical Spreads',
     items: [
       { key: 'debit_call_spread', name: 'Debit Call Spread', tag: 'Bullish' },
       { key: 'debit_put_spread', name: 'Debit Put Spread', tag: 'Bearish' },
@@ -29,19 +29,45 @@ const STRATEGY_GROUPS = [
     ],
   },
   {
-    label: 'Iron Condors',
+    label: 'The Wheel',
     items: [
-      { key: 'iron_condor', name: 'Short Iron Condor', tag: 'Neutral' },
-      { key: 'long_iron_condor', name: 'Long Iron Condor', tag: 'Directional' },
+      { key: 'covered_call', name: 'Covered Call', tag: 'Neutral' },
+      { key: 'cash_secured_put', name: 'Cash Secured Put', tag: 'Bullish' },
     ],
   },
   {
-    label: 'Straddles & Strangles',
+    label: 'Iron Condor',
+    items: [
+      { key: 'iron_condor', name: 'Iron Condor', tag: 'Neutral' },
+    ],
+  },
+  {
+    label: 'Butterflies',
+    items: [
+      { key: 'iron_butterfly', name: 'Iron Butterfly', tag: 'Neutral' },
+      { key: 'long_call_butterfly', name: 'Long Call Butterfly', tag: 'Neutral' },
+      { key: 'long_put_butterfly', name: 'Long Put Butterfly', tag: 'Neutral' },
+    ],
+  },
+  {
+    label: 'Straddles',
     items: [
       { key: 'straddle', name: 'Long Straddle', tag: 'Directional' },
       { key: 'short_straddle', name: 'Short Straddle', tag: 'Neutral' },
+    ],
+  },
+  {
+    label: 'Strangles',
+    items: [
       { key: 'long_strangle', name: 'Long Strangle', tag: 'Directional' },
       { key: 'short_strangle', name: 'Short Strangle', tag: 'Neutral' },
+    ],
+  },
+  {
+    label: 'Calendar Spreads',
+    items: [
+      { key: 'calendar_call_spread', name: 'Calendar Call Spread', tag: 'Neutral' },
+      { key: 'calendar_put_spread', name: 'Calendar Put Spread', tag: 'Neutral' },
     ],
   },
 ];
@@ -57,11 +83,17 @@ const STRATEGY_DEFAULTS: Record<string, Partial<StrategyConfig>> = {
   debit_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
   debit_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
   iron_condor: { min_dte: 30, max_dte: 45, short_delta: 0.15, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  long_iron_condor: { min_dte: 30, max_dte: 45, short_delta: 0.15, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
   straddle: { min_dte: 20, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
   short_straddle: { min_dte: 20, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
   long_strangle: { min_dte: 25, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
   short_strangle: { min_dte: 25, max_dte: 45, short_delta: 0.15, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  covered_call: { min_dte: 25, max_dte: 45, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  cash_secured_put: { min_dte: 25, max_dte: 45, short_delta: 0.25, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  iron_butterfly: { min_dte: 30, max_dte: 45, short_delta: 0.50, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+  long_call_butterfly: { min_dte: 30, max_dte: 60, short_delta: 0.50, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  long_put_butterfly: { min_dte: 30, max_dte: 60, short_delta: 0.50, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  calendar_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  calendar_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
 };
 
 const ALL_STRATEGIES = [...SINGLE_LEG, ...STRATEGY_GROUPS.flatMap((g) => g.items)];
@@ -157,7 +189,7 @@ function App() {
     }
     if (exitEnabled) {
       chips.push({ label: 'Take Profit', value: `${(strategy.close_at_profit_pct * 100).toFixed(0)}%` });
-      const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'short_straddle', 'short_strangle'].includes(strategy.type);
+      const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'iron_butterfly', 'short_straddle', 'short_strangle', 'covered_call', 'cash_secured_put', 'calendar_call_spread', 'calendar_put_spread'].includes(strategy.type);
       chips.push({ label: 'Stop Loss', value: isCredit ? `${strategy.close_at_loss_pct.toFixed(1)}x` : `${(strategy.close_at_loss_pct * 100).toFixed(0)}%` });
       if (strategy.close_at_dte > 0) {
         chips.push({ label: 'Close Before', value: `${strategy.close_at_dte} DTE` });
@@ -228,23 +260,23 @@ function App() {
           <div className="card">
             <div className="flex flex-wrap items-end gap-4">
               <div className="w-24">
-                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Symbol</label>
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Symbol</label>
                 <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
                   placeholder="SPY"
                   onChange={(e) => setTicker(e.target.value.toUpperCase())} />
               </div>
               <div className="w-40">
-                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Start Date</label>
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Start Date</label>
                 <input type="date" className="input-field" value={startDate}
                   onChange={(e) => setStartDate(e.target.value)} />
               </div>
               <div className="w-40">
-                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">End Date</label>
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>End Date</label>
                 <input type="date" className="input-field" value={endDate}
                   onChange={(e) => setEndDate(e.target.value)} />
               </div>
               <div className="w-32">
-                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Starting Cash</label>
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Starting Cash</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
                   <input type="number" className="input-field !pl-7" value={startingCash}
@@ -252,7 +284,7 @@ function App() {
                 </div>
               </div>
               <div className="w-24">
-                <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-1">Commission</label>
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Commission</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
                   <input type="number" className="input-field !pl-7" step="0.05" min="0" value={commission}
@@ -282,21 +314,21 @@ function App() {
               </div>
             </div>
 
-            {/* Multi-leg strategies */}
-            <div className="mb-2">
+            {/* Multi-leg strategies: groups side by side, cards stacked */}
+            <div>
               <h3 className="text-lg font-bold text-white mb-3 text-center">...or Choose a Strategy</h3>
-              {STRATEGY_GROUPS.map((group) => (
-                <div key={group.label} style={{ marginBottom: '1.25rem' }}>
-                  <p style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', textAlign: 'center', marginBottom: '8px' }}>{group.label}</p>
-                  <div className="flex flex-wrap gap-3 justify-center">
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                {STRATEGY_GROUPS.map((group) => (
+                  <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '14rem' }}>
+                    <p style={{ fontSize: '14px', color: '#d1d5db', textAlign: 'center', marginBottom: '4px' }}>{group.label}</p>
                     {group.items.map((s) => (
                       <StrategyCard key={s.key} name={s.name} tag={s.tag}
                         selected={strategy.type === s.key}
                         onClick={() => handleStrategyChange(s.key)} />
                     ))}
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </section>

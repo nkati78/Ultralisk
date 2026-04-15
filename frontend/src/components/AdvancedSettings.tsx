@@ -161,7 +161,7 @@ function InlineSelect({ label, value, options, labels, onChange }: {
 }) {
   return (
     <div className="mb-1">
-      <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-0.5">{label}</label>
+      <label className="block mb-0.5" style={{ fontSize: '14px', color: '#d1d5db' }}>{label}</label>
       <select className="input-field !py-1 !text-xs" value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o} value={o}>{labels?.[o] ?? o}</option>)}
       </select>
@@ -175,7 +175,7 @@ function InlineNumber({ label, value, onChange, min, max, step }: {
 }) {
   return (
     <div className="mb-1">
-      <label className="text-[10px] uppercase tracking-wider text-gray-500 block mb-0.5">{label}</label>
+      <label className="block mb-0.5" style={{ fontSize: '14px', color: '#d1d5db' }}>{label}</label>
       <input type="number" className="input-field !py-1 !text-xs" value={value}
         min={min} max={max} step={step}
         onChange={(e) => onChange(Number(e.target.value))} />

@@ -13,8 +13,8 @@ interface Props {
 type Preset = { label: string; description: string; color: string; activeColor: string; values: Partial<StrategyConfig> };
 
 function getPresets(type: string): Preset[] {
-  const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'short_straddle', 'short_strangle'].includes(type);
-  const isDebit = ['long_call', 'long_put', 'debit_call_spread', 'debit_put_spread', 'long_iron_condor', 'straddle', 'long_strangle'].includes(type);
+  const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'iron_butterfly', 'short_straddle', 'short_strangle', 'covered_call', 'cash_secured_put', 'calendar_call_spread', 'calendar_put_spread'].includes(type);
+  const isDebit = ['long_call', 'long_put', 'debit_call_spread', 'debit_put_spread', 'long_call_butterfly', 'long_put_butterfly', 'straddle', 'long_strangle'].includes(type);
 
   if (isCredit) {
     return [
@@ -273,10 +273,11 @@ export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle }:
   const presets = getPresets(type);
   const [activePreset, setActivePreset] = useState<string | null>(null);
 
-  const isSpread = type === 'short_put_spread' || type === 'short_call_spread' || type === 'debit_call_spread' || type === 'debit_put_spread';
-  const isIronCondor = type === 'iron_condor' || type === 'long_iron_condor';
+  const isSpread = ['short_put_spread', 'short_call_spread', 'debit_call_spread', 'debit_put_spread', 'calendar_call_spread', 'calendar_put_spread'].includes(type);
+  const isIronCondor = ['iron_condor', 'iron_butterfly', 'long_call_butterfly', 'long_put_butterfly'].includes(type);
   const isProtPut = type === 'protective_put';
   const isStraddle = type === 'straddle' || type === 'short_straddle';
+  const isCovered = type === 'covered_call' || type === 'cash_secured_put';
 
   const applyPreset = (preset: Preset) => {
     if (activePreset === preset.label) {
@@ -298,7 +299,7 @@ export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle }:
               <button
                 key={p.label}
                 onClick={() => applyPreset(p)}
-                style={{ minWidth: '11rem', minHeight: '4.25rem' }}
+                style={{ minWidth: '11rem', minHeight: '4.25rem', flex: '1 1 11rem', maxWidth: '16rem' }}
                 className={`relative flex flex-col items-center justify-center gap-0.5 px-7 py-4 rounded-md border transition-all text-center ${
                   active
                     ? `${p.activeColor} shadow-lg`

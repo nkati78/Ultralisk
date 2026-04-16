@@ -84,6 +84,8 @@ class BacktestResult:
         if days <= 0:
             return 0.0
         total_return = self.final_equity / self.starting_cash
+        if total_return <= 0:
+            return -100.0
         return (total_return ** (365.0 / days) - 1) * 100
 
     @property

@@ -7,12 +7,30 @@ interface Props {
   onChange: (s: StrategyConfig) => void;
   exitEnabled: boolean;
   onExitToggle: (v: boolean) => void;
+  underlyingPrice: number;
+}
+
+/* ── Price-scaled width helpers ── */
+// Returns a sensible strike-width step and snap points scaled to the underlying price.
+// For a ~$450 stock (SPY) widths are $1-$50; for ~$5000 (SPX) widths are $5-$500.
+function widthSnaps(price: number): { step: number; snaps: number[]; max: number; conservative: number; balanced: number; aggressive: number } {
+  if (price >= 1000) {
+    // SPX-class: $5000 range
+    return { step: 5, snaps: [5, 10, 25, 50, 75, 100, 200], max: 500, conservative: 25, balanced: 50, aggressive: 100 };
+  }
+  if (price >= 300) {
+    // SPY/QQQ-class: $300-999 range
+    return { step: 1, snaps: [1, 2, 5, 10, 15, 20, 50], max: 50, conservative: 5, balanced: 5, aggressive: 10 };
+  }
+  // Small underlyings: under $300
+  return { step: 0.5, snaps: [0.5, 1, 2, 3, 5, 10], max: 25, conservative: 2, balanced: 3, aggressive: 5 };
 }
 
 /* ── Presets per strategy "family" ── */
 type Preset = { label: string; description: string; color: string; activeColor: string; values: Partial<StrategyConfig> };
 
-function getPresets(type: string): Preset[] {
+function getPresets(type: string, price: number): Preset[] {
+  const w = widthSnaps(price);
   const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'iron_butterfly', 'short_straddle', 'short_strangle', 'calendar_call_spread', 'calendar_put_spread'].includes(type);
   const isDebit = ['long_call', 'long_put', 'debit_call_spread', 'debit_put_spread', 'long_call_butterfly', 'long_put_butterfly', 'straddle', 'long_strangle'].includes(type);
 
@@ -23,21 +41,21 @@ function getPresets(type: string): Preset[] {
         description: 'High win rate, smaller premium',
         color: 'text-green-400',
         activeColor: 'border-green-400 bg-green-400/[0.08] shadow-green-400/[0.15]',
-        values: { min_dte: 30, max_dte: 60, short_delta: 0.10, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 10, spread_width: 5, wing_width: 5 },
+        values: { min_dte: 30, max_dte: 60, short_delta: 0.10, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 10, spread_width: w.conservative, wing_width: w.conservative },
       },
       {
         label: 'Balanced',
         description: 'Moderate risk/reward tradeoff',
         color: 'text-yellow-400',
         activeColor: 'border-yellow-400 bg-yellow-400/[0.08] shadow-yellow-400/[0.15]',
-        values: { min_dte: 25, max_dte: 45, short_delta: 0.20, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7, spread_width: 5, wing_width: 5 },
+        values: { min_dte: 25, max_dte: 45, short_delta: 0.20, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7, spread_width: w.balanced, wing_width: w.balanced },
       },
       {
         label: 'Aggressive',
         description: 'Higher premium, lower win rate',
         color: 'text-red-400',
         activeColor: 'border-red-400 bg-red-400/[0.08] shadow-red-400/[0.15]',
-        values: { min_dte: 14, max_dte: 30, short_delta: 0.35, close_at_profit_pct: 0.75, close_at_loss_pct: 1.5, close_at_dte: 3, spread_width: 10, wing_width: 10 },
+        values: { min_dte: 14, max_dte: 30, short_delta: 0.35, close_at_profit_pct: 0.75, close_at_loss_pct: 1.5, close_at_dte: 3, spread_width: w.aggressive, wing_width: w.aggressive },
       },
     ];
   }
@@ -48,21 +66,21 @@ function getPresets(type: string): Preset[] {
         description: 'More time, tighter stops',
         color: 'text-green-400',
         activeColor: 'border-green-400 bg-green-400/[0.08] shadow-green-400/[0.15]',
-        values: { min_dte: 45, max_dte: 90, short_delta: 0.40, close_at_profit_pct: 0.5, close_at_loss_pct: 0.3, close_at_dte: 14, spread_width: 5, wing_width: 5 },
+        values: { min_dte: 45, max_dte: 90, short_delta: 0.40, close_at_profit_pct: 0.5, close_at_loss_pct: 0.3, close_at_dte: 14, spread_width: w.conservative, wing_width: w.conservative },
       },
       {
         label: 'Balanced',
         description: 'Moderate expiry and targets',
         color: 'text-yellow-400',
         activeColor: 'border-yellow-400 bg-yellow-400/[0.08] shadow-yellow-400/[0.15]',
-        values: { min_dte: 30, max_dte: 60, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7, spread_width: 5, wing_width: 5 },
+        values: { min_dte: 30, max_dte: 60, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7, spread_width: w.balanced, wing_width: w.balanced },
       },
       {
         label: 'Aggressive',
         description: 'Short-dated, ride winners',
         color: 'text-red-400',
         activeColor: 'border-red-400 bg-red-400/[0.08] shadow-red-400/[0.15]',
-        values: { min_dte: 14, max_dte: 30, short_delta: 0.20, close_at_profit_pct: 1.0, close_at_loss_pct: 0.75, close_at_dte: 3, spread_width: 10, wing_width: 10 },
+        values: { min_dte: 14, max_dte: 30, short_delta: 0.20, close_at_profit_pct: 1.0, close_at_loss_pct: 0.75, close_at_dte: 3, spread_width: w.aggressive, wing_width: w.aggressive },
       },
     ];
   }
@@ -267,10 +285,11 @@ function Slider({ label, value, min, max, step, help, tip, onChange, format, sna
   );
 }
 
-export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle }: Props) {
+export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle, underlyingPrice }: Props) {
   const set = (patch: Partial<StrategyConfig>) => onChange({ ...strategy, ...patch });
   const type = strategy.type;
-  const presets = getPresets(type);
+  const presets = getPresets(type, underlyingPrice);
+  const w = widthSnaps(underlyingPrice);
   const [activePreset, setActivePreset] = useState<string | null>(null);
 
   const isSpread = ['short_put_spread', 'short_call_spread', 'debit_call_spread', 'debit_put_spread', 'calendar_call_spread', 'calendar_put_spread'].includes(type);
@@ -360,8 +379,8 @@ export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle }:
           {(isSpread) && (
             <>
               <Slider label="Spread Width ($)" value={strategy.spread_width}
-                min={1} max={50} step={1}
-                snaps={[1, 2, 5, 10, 15, 20, 50]}
+                min={w.step} max={w.max} step={w.step}
+                snaps={w.snaps}
                 format={(v) => `$${v}`}
                 snapLabels={(v) => `$${v}`}
                 tip="Dollar distance between short and long strikes. Wider spreads collect more premium but increase max loss."
@@ -375,8 +394,8 @@ export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle }:
           )}
           {isIronCondor && (
             <Slider label="Wing Width ($)" value={strategy.wing_width}
-              min={1} max={50} step={1}
-              snaps={[1, 2, 5, 10, 15, 20, 50]}
+              min={w.step} max={w.max} step={w.step}
+              snaps={w.snaps}
               format={(v) => `$${v}`}
               snapLabels={(v) => `$${v}`}
               tip="Dollar distance between short and long wings on each side. Wider wings increase max loss but collect more premium."

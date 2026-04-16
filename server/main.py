@@ -13,10 +13,16 @@ from server.schemas import (
 from thesislab.data.fake_provider import FakeDataProvider
 from thesislab.engine.backtester import Backtester, BacktestConfig
 from thesislab.filters import EntryExitFilters, IndicatorFilter, TimeOfDayFilter
+from thesislab.strategies.butterfly import Butterfly, ButterflyType
+from thesislab.strategies.calendar_spread import CalendarSpread, CalendarType
 from thesislab.strategies.covered_call import CoveredCall
-from thesislab.strategies.protective_put import ProtectivePut
+from thesislab.strategies.debit_spread import DebitSpread, DebitDirection
 from thesislab.strategies.iron_condor import IronCondor
+from thesislab.strategies.protective_put import ProtectivePut
+from thesislab.strategies.short_straddle import ShortStraddle
+from thesislab.strategies.single_leg import SingleLeg, LegDirection
 from thesislab.strategies.straddle import Straddle
+from thesislab.strategies.strangle import Strangle
 from thesislab.strategies.vertical_spread import VerticalSpread, SpreadDirection
 
 app = FastAPI(title="ThesisLab Backtester API")
@@ -31,6 +37,26 @@ app.add_middleware(
 
 def _build_strategy(cfg):
     t = cfg.type
+
+    # ── Single-leg strategies ──
+    _leg_map = {
+        "long_call": LegDirection.LONG_CALL,
+        "long_put": LegDirection.LONG_PUT,
+        "short_call": LegDirection.SHORT_CALL,
+        "short_put": LegDirection.SHORT_PUT,
+    }
+    if t in _leg_map:
+        return SingleLeg(
+            name=t, leg_direction=_leg_map[t],
+            short_delta=cfg.short_delta,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            max_positions=cfg.max_positions,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+
+    # ── Credit vertical spreads ──
     if t == "short_put_spread":
         return VerticalSpread(
             name="ShortPutSpread", direction=SpreadDirection.BULL,
@@ -51,6 +77,123 @@ def _build_strategy(cfg):
             close_at_loss_pct=cfg.close_at_loss_pct,
             close_at_dte=cfg.close_at_dte,
         )
+
+    # ── Debit vertical spreads ──
+    elif t == "debit_call_spread":
+        return DebitSpread(
+            name="DebitCallSpread", direction=DebitDirection.BULL,
+            short_delta=cfg.short_delta, spread_width=cfg.spread_width,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            max_positions=cfg.max_positions,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+    elif t == "debit_put_spread":
+        return DebitSpread(
+            name="DebitPutSpread", direction=DebitDirection.BEAR,
+            short_delta=cfg.short_delta, spread_width=cfg.spread_width,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            max_positions=cfg.max_positions,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+
+    # ── Calendar spreads ──
+    elif t == "calendar_call_spread":
+        return CalendarSpread(
+            name="CalendarCallSpread", calendar_type=CalendarType.CALL,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+    elif t == "calendar_put_spread":
+        return CalendarSpread(
+            name="CalendarPutSpread", calendar_type=CalendarType.PUT,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+
+    # ── Iron condor ──
+    elif t == "iron_condor":
+        return IronCondor(
+            short_delta=cfg.short_delta, wing_width=cfg.wing_width,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+
+    # ── Straddles ──
+    elif t == "straddle":
+        return Straddle(
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+    elif t == "short_straddle":
+        return ShortStraddle(
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+
+    # ── Strangles ──
+    elif t == "long_strangle":
+        return Strangle(
+            name="LongStrangle", is_short=False,
+            short_delta=cfg.short_delta,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+    elif t == "short_strangle":
+        return Strangle(
+            name="ShortStrangle", is_short=True,
+            short_delta=cfg.short_delta,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+
+    # ── Butterflies ──
+    elif t == "iron_butterfly":
+        return Butterfly(
+            name="IronButterfly", butterfly_type=ButterflyType.IRON,
+            wing_width=cfg.wing_width,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+    elif t == "long_call_butterfly":
+        return Butterfly(
+            name="LongCallButterfly", butterfly_type=ButterflyType.LONG_CALL,
+            wing_width=cfg.wing_width,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+    elif t == "long_put_butterfly":
+        return Butterfly(
+            name="LongPutButterfly", butterfly_type=ButterflyType.LONG_PUT,
+            wing_width=cfg.wing_width,
+            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
+            close_at_profit_pct=cfg.close_at_profit_pct,
+            close_at_loss_pct=cfg.close_at_loss_pct,
+            close_at_dte=cfg.close_at_dte,
+        )
+
+    # ── Legacy strategies ──
     elif t == "covered_call":
         return CoveredCall(
             delta_target=cfg.short_delta, min_dte=cfg.min_dte, max_dte=cfg.max_dte,
@@ -63,21 +206,7 @@ def _build_strategy(cfg):
             close_at_loss_pct=cfg.close_at_loss_pct,
             close_at_dte=cfg.close_at_dte,
         )
-    elif t == "iron_condor":
-        return IronCondor(
-            short_delta=cfg.short_delta, wing_width=cfg.wing_width,
-            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
-            close_at_profit_pct=cfg.close_at_profit_pct,
-            close_at_loss_pct=cfg.close_at_loss_pct,
-            close_at_dte=cfg.close_at_dte,
-        )
-    elif t == "straddle":
-        return Straddle(
-            min_dte=cfg.min_dte, max_dte=cfg.max_dte,
-            close_at_profit_pct=cfg.close_at_profit_pct,
-            close_at_loss_pct=cfg.close_at_loss_pct,
-            close_at_dte=cfg.close_at_dte,
-        )
+
     raise ValueError(f"Unknown strategy: {t}")
 
 
@@ -232,12 +361,24 @@ def run_backtest(req: BacktestRequest):
 @app.get("/api/strategies")
 def list_strategies():
     return [
-        {"key": "short_put_spread", "name": "Short Put Vertical Spread"},
-        {"key": "short_call_spread", "name": "Short Call Vertical Spread"},
-        {"key": "covered_call", "name": "Covered Call"},
-        {"key": "protective_put", "name": "Protective Put"},
+        {"key": "long_call", "name": "Long Call"},
+        {"key": "long_put", "name": "Long Put"},
+        {"key": "short_call", "name": "Short Call"},
+        {"key": "short_put", "name": "Short Put"},
+        {"key": "short_put_spread", "name": "Put Credit Spread"},
+        {"key": "short_call_spread", "name": "Call Credit Spread"},
+        {"key": "debit_call_spread", "name": "Call Debit Spread"},
+        {"key": "debit_put_spread", "name": "Put Debit Spread"},
+        {"key": "calendar_call_spread", "name": "Calendar Call Spread"},
+        {"key": "calendar_put_spread", "name": "Calendar Put Spread"},
         {"key": "iron_condor", "name": "Iron Condor"},
         {"key": "straddle", "name": "Long Straddle"},
+        {"key": "short_straddle", "name": "Short Straddle"},
+        {"key": "long_strangle", "name": "Long Strangle"},
+        {"key": "short_strangle", "name": "Short Strangle"},
+        {"key": "iron_butterfly", "name": "Iron Butterfly"},
+        {"key": "long_call_butterfly", "name": "Long Call Butterfly"},
+        {"key": "long_put_butterfly", "name": "Long Put Butterfly"},
     ]
 
 

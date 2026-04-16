@@ -65,27 +65,37 @@ const STRATEGY_GROUPS = [
   },
 ];
 
-/* Sensible defaults per strategy type */
-const STRATEGY_DEFAULTS: Record<string, Partial<StrategyConfig>> = {
-  long_call: { min_dte: 30, max_dte: 60, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-  long_put: { min_dte: 30, max_dte: 60, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-  short_call: { min_dte: 25, max_dte: 45, short_delta: 0.25, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  short_put: { min_dte: 25, max_dte: 45, short_delta: 0.25, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  short_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  short_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  debit_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-  debit_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-  iron_condor: { min_dte: 30, max_dte: 45, short_delta: 0.15, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  straddle: { min_dte: 20, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-  short_straddle: { min_dte: 20, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  long_strangle: { min_dte: 25, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-  short_strangle: { min_dte: 25, max_dte: 45, short_delta: 0.15, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  iron_butterfly: { min_dte: 30, max_dte: 45, short_delta: 0.50, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
-  long_call_butterfly: { min_dte: 30, max_dte: 60, short_delta: 0.50, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-  long_put_butterfly: { min_dte: 30, max_dte: 60, short_delta: 0.50, wing_width: 5, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-  calendar_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-  calendar_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
-};
+/* Sensible defaults per strategy type — spread/wing widths scale with underlying price */
+function defaultWidth(price: number): number {
+  if (price >= 1000) return 50;
+  if (price >= 300) return 5;
+  return 3;
+}
+
+function getStrategyDefaults(key: string, price: number): Partial<StrategyConfig> {
+  const w = defaultWidth(price);
+  const base: Record<string, Partial<StrategyConfig>> = {
+    long_call: { min_dte: 30, max_dte: 60, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+    long_put: { min_dte: 30, max_dte: 60, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+    short_call: { min_dte: 25, max_dte: 45, short_delta: 0.25, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+    short_put: { min_dte: 25, max_dte: 45, short_delta: 0.25, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+    short_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: w, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+    short_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: w, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+    debit_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: w, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+    debit_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.25, spread_width: w, max_positions: 1, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+    iron_condor: { min_dte: 30, max_dte: 45, short_delta: 0.15, wing_width: w, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+    straddle: { min_dte: 20, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+    short_straddle: { min_dte: 20, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+    long_strangle: { min_dte: 25, max_dte: 45, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+    short_strangle: { min_dte: 25, max_dte: 45, short_delta: 0.15, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+    iron_butterfly: { min_dte: 30, max_dte: 45, short_delta: 0.50, wing_width: w, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7 },
+    long_call_butterfly: { min_dte: 30, max_dte: 60, short_delta: 0.50, wing_width: w, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+    long_put_butterfly: { min_dte: 30, max_dte: 60, short_delta: 0.50, wing_width: w, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+    calendar_call_spread: { min_dte: 25, max_dte: 45, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+    calendar_put_spread: { min_dte: 25, max_dte: 45, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7 },
+  };
+  return base[key] ?? {};
+}
 
 const ALL_STRATEGIES = [...SINGLE_LEG, ...STRATEGY_GROUPS.flatMap((g) => g.items)];
 const STRATEGY_NAME_MAP: Record<string, string> = Object.fromEntries(ALL_STRATEGIES.map((s) => [s.key, s.name]));
@@ -159,7 +169,7 @@ function App() {
       setStrategy({ ...strategy, type: '' });
       setHasSelectedStrategy(false);
     } else {
-      const defaults = STRATEGY_DEFAULTS[key] ?? {};
+      const defaults = getStrategyDefaults(key, syntheticConfig.start_price);
       setStrategy({ ...strategy, type: key, ...defaults });
       setHasSelectedStrategy(true);
     }
@@ -295,7 +305,7 @@ function App() {
           <div className="card">
             {/* Single-leg options */}
             <div style={{ marginBottom: '2.5rem' }}>
-              <h3 className="text-lg font-bold text-white mb-3 text-center">Select a Leg</h3>
+              <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>Select a Leg</h3>
               <div className="flex flex-wrap gap-3 justify-center">
                 {SINGLE_LEG.map((s) => (
                   <StrategyCard key={s.key} name={s.name} tag={s.tag}
@@ -307,7 +317,7 @@ function App() {
 
             {/* Multi-leg strategies: groups side by side, cards stacked */}
             <div>
-              <h3 className="text-lg font-bold text-white mb-3 text-center">...or Choose a Strategy</h3>
+              <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>...or Choose a Strategy</h3>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                 {STRATEGY_GROUPS.map((group, i) => (
                   <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '14rem', paddingLeft: i > 0 ? '1rem' : undefined, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
@@ -342,7 +352,7 @@ function App() {
             </h2>
           )}
           {hasSelectedStrategy && section3Open && (
-            <StrategyPanel strategy={strategy} onChange={setStrategy} exitEnabled={exitEnabled} onExitToggle={setExitEnabled} />
+            <StrategyPanel strategy={strategy} onChange={setStrategy} exitEnabled={exitEnabled} onExitToggle={setExitEnabled} underlyingPrice={syntheticConfig.start_price} />
           )}
         </section>
 

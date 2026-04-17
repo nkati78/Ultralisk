@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { StrategyPanel } from './components/StrategyPanel';
 import { AdvancedSettings } from './components/AdvancedSettings';
 import { MetricCard } from './components/MetricCard';
@@ -97,6 +97,94 @@ function getStrategyDefaults(key: string, price: number): Partial<StrategyConfig
   return base[key] ?? {};
 }
 
+const CREDIT_STRATEGIES = new Set([
+  'short_put', 'short_call', 'short_put_spread', 'short_call_spread',
+  'iron_condor', 'iron_butterfly', 'short_straddle', 'short_strangle',
+  'calendar_call_spread', 'calendar_put_spread',
+]);
+
+interface TradeEstimate {
+  creditOrDebit: number;   // positive = credit, negative = debit
+  isCredit: boolean;
+  marginRequired: number;
+  maxGain: number;
+  maxLoss: number;
+}
+
+function estimateTradeStats(
+  type: string, price: number, delta: number,
+  spreadW: number, wingW: number,
+  minDte: number, maxDte: number, iv: number,
+): TradeEstimate | null {
+  if (!type) return null;
+  const isCredit = CREDIT_STRATEGIES.has(type);
+  const T = ((minDte + maxDte) / 2) / 365;
+  const sqrtT = Math.sqrt(T);
+  const df = delta / 0.50;
+  const legPrem = price * 0.4 * iv * sqrtT * df;
+
+  let cd: number, margin: number, gain: number, loss: number;
+
+  if (type === 'short_put_spread' || type === 'short_call_spread') {
+    const longDf = Math.max(0.05, delta - spreadW / price) / 0.50;
+    const longPrem = price * 0.4 * iv * sqrtT * longDf;
+    cd = (legPrem - longPrem) * 100;
+    margin = spreadW * 100;
+    gain = cd; loss = margin - cd;
+  } else if (type === 'debit_call_spread' || type === 'debit_put_spread') {
+    const shortDf = Math.max(0.05, delta - spreadW / price) / 0.50;
+    const shortPrem = price * 0.4 * iv * sqrtT * shortDf;
+    cd = -(legPrem - shortPrem) * 100;
+    margin = Math.abs(cd);
+    gain = spreadW * 100 - margin; loss = margin;
+  } else if (type === 'short_put' || type === 'short_call') {
+    cd = legPrem * 100;
+    margin = price * 20; gain = cd; loss = Infinity;
+  } else if (type === 'long_call' || type === 'long_put') {
+    cd = -(legPrem * 100);
+    margin = Math.abs(cd); gain = Infinity; loss = margin;
+  } else if (type === 'iron_condor') {
+    const wingDf = Math.max(0.05, delta - wingW / price) / 0.50;
+    const wingPrem = price * 0.4 * iv * sqrtT * wingDf;
+    cd = (2 * legPrem - 2 * wingPrem) * 100;
+    margin = wingW * 100; gain = cd; loss = margin - cd;
+  } else if (type === 'iron_butterfly') {
+    const atmPrem = price * 0.4 * iv * sqrtT;
+    const wingDf = Math.max(0.05, 0.50 - wingW / price) / 0.50;
+    const wingPrem = price * 0.4 * iv * sqrtT * wingDf;
+    cd = (2 * atmPrem - 2 * wingPrem) * 100;
+    margin = wingW * 100; gain = cd; loss = margin - cd;
+  } else if (type === 'short_straddle') {
+    const atmPrem = price * 0.4 * iv * sqrtT;
+    cd = 2 * atmPrem * 100;
+    margin = price * 20; gain = cd; loss = Infinity;
+  } else if (type === 'straddle') {
+    const atmPrem = price * 0.4 * iv * sqrtT;
+    cd = -(2 * atmPrem * 100);
+    margin = Math.abs(cd); gain = Infinity; loss = margin;
+  } else if (type === 'short_strangle') {
+    cd = 2 * legPrem * 100;
+    margin = price * 20; gain = cd; loss = Infinity;
+  } else if (type === 'long_strangle') {
+    cd = -(2 * legPrem * 100);
+    margin = Math.abs(cd); gain = Infinity; loss = margin;
+  } else if (type === 'long_call_butterfly' || type === 'long_put_butterfly') {
+    const atmPrem = price * 0.4 * iv * sqrtT;
+    const wingDf = Math.max(0.05, 0.50 - wingW / price) / 0.50;
+    const wingPrem = price * 0.4 * iv * sqrtT * wingDf;
+    cd = -(2 * wingPrem - 2 * (atmPrem * 0.5)) * 100;
+    margin = Math.abs(cd); gain = wingW * 100 - margin; loss = margin;
+  } else if (type === 'calendar_call_spread' || type === 'calendar_put_spread') {
+    const frontPrem = legPrem * 0.7;
+    const backPrem = legPrem * 1.3;
+    cd = -(backPrem - frontPrem) * 100;
+    margin = Math.abs(cd); gain = margin * 1.5; loss = margin;
+  } else {
+    return null;
+  }
+  return { creditOrDebit: cd, isCredit, marginRequired: Math.max(0, margin), maxGain: Math.max(0, gain), maxLoss: Math.max(0, loss) };
+}
+
 const ALL_STRATEGIES = [...SINGLE_LEG, ...STRATEGY_GROUPS.flatMap((g) => g.items)];
 const STRATEGY_NAME_MAP: Record<string, string> = Object.fromEntries(ALL_STRATEGIES.map((s) => [s.key, s.name]));
 
@@ -147,6 +235,8 @@ function App() {
     vwap: { enabled: false, direction: 'above' },
   });
 
+  const [section1Open, setSection1Open] = useState(true);
+  const [section2Open, setSection2Open] = useState(true);
   const [section3Open, setSection3Open] = useState(true);
   const [section4Open, setSection4Open] = useState(false);
   const [exitEnabled, setExitEnabled] = useState(false);
@@ -161,8 +251,13 @@ function App() {
   const [commission, setCommission] = useState(0.65);
   const [result, setResult] = useState<BacktestResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [hasSelectedStrategy, setHasSelectedStrategy] = useState(false);
+  const [isStale, setIsStale] = useState(false);
+  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const markStale = useCallback(() => { if (result) setIsStale(true); }, [result]);
 
   const handleStrategyChange = (key: string) => {
     if (strategy.type === key) {
@@ -173,7 +268,24 @@ function App() {
       setStrategy({ ...strategy, type: key, ...defaults });
       setHasSelectedStrategy(true);
     }
+    markStale();
   };
+
+  const handleSetStrategy = (s: StrategyConfig) => { setStrategy(s); markStale(); };
+  const handleSetFilters = (f: AdvancedFilters) => { setFilters(f); markStale(); };
+  const handleSetExitEnabled = (v: boolean) => { setExitEnabled(v); markStale(); };
+  const handleSetTicker = (v: string) => { setTicker(v); markStale(); };
+  const handleSetStartDate = (v: string) => { setStartDate(v); markStale(); };
+  const handleSetEndDate = (v: string) => { setEndDate(v); markStale(); };
+  const handleSetStartingCash = (v: number) => { setStartingCash(v); markStale(); };
+  const handleSetCommission = (v: number) => { setCommission(v); markStale(); };
+
+  /* ── Trade estimate ── */
+  const tradeEstimate = estimateTradeStats(
+    strategy.type, syntheticConfig.start_price, strategy.short_delta,
+    strategy.spread_width, strategy.wing_width,
+    strategy.min_dte, strategy.max_dte, syntheticConfig.base_iv,
+  );
 
   /* ── Summary chip helpers ── */
   type Chip = { label: string; value: string };
@@ -190,8 +302,8 @@ function App() {
     }
     if (exitEnabled) {
       chips.push({ label: 'Take Profit', value: `${(strategy.close_at_profit_pct * 100).toFixed(0)}%` });
-      const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'iron_butterfly', 'short_straddle', 'short_strangle', 'calendar_call_spread', 'calendar_put_spread'].includes(strategy.type);
-      chips.push({ label: 'Stop Loss', value: isCredit ? `${strategy.close_at_loss_pct.toFixed(1)}x` : `${(strategy.close_at_loss_pct * 100).toFixed(0)}%` });
+      const isCred = CREDIT_STRATEGIES.has(strategy.type);
+      chips.push({ label: 'Stop Loss', value: isCred ? `${strategy.close_at_loss_pct.toFixed(1)}x` : `${(strategy.close_at_loss_pct * 100).toFixed(0)}%` });
       if (strategy.close_at_dte > 0) {
         chips.push({ label: 'Close Before', value: `${strategy.close_at_dte} DTE` });
       }
@@ -218,31 +330,83 @@ function App() {
     return chips;
   };
 
+  const fmtEst = (v: number) => v === Infinity ? 'Unlimited' : formatCurrency(v);
+
   const handleRun = async () => {
+    // Collapse all setup sections
+    setSection1Open(false);
+    setSection2Open(false);
+    setSection3Open(false);
+    setSection4Open(false);
     setIsLoading(true);
+    setLoadingProgress(0);
     setError(null);
+    setResult(null);
+    setIsStale(false);
+
+    // Animate progress bar (decelerating curve, caps at ~92%)
+    const startTime = Date.now();
+    progressRef.current = setInterval(() => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const target = Math.min(92, 100 * (1 - Math.exp(-elapsed / 1.2)));
+      setLoadingProgress(target);
+    }, 80);
+
     try {
       const finalStrategy = exitEnabled
         ? strategy
         : { ...strategy, close_at_profit_pct: 9999, close_at_loss_pct: 9999, close_at_dte: 0 };
-      const res = await runBacktest({
-        ticker,
-        start_date: startDate,
-        end_date: endDate,
-        starting_cash: startingCash,
-        commission,
-        strategy: finalStrategy,
-        advanced_filters: filters,
-        data_source: 'synthetic',
-        synthetic_config: syntheticConfig,
-      });
+      const [res] = await Promise.all([
+        runBacktest({
+          ticker,
+          start_date: startDate,
+          end_date: endDate,
+          starting_cash: startingCash,
+          commission,
+          strategy: finalStrategy,
+          advanced_filters: filters,
+          data_source: 'synthetic',
+          synthetic_config: syntheticConfig,
+        }),
+        new Promise((r) => setTimeout(r, 3000)), // minimum 3s display
+      ]);
+      if (progressRef.current) clearInterval(progressRef.current);
+      setLoadingProgress(100);
+      await new Promise((r) => setTimeout(r, 300)); // brief pause at 100%
       setResult(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Backtest failed');
     } finally {
+      if (progressRef.current) clearInterval(progressRef.current);
       setIsLoading(false);
     }
   };
+
+  /* ── Collapsible section header helper ── */
+  const SectionHeader = ({ num, label, open, onToggle, enabled = true, extra }: {
+    num: number; label: string; open: boolean; onToggle: () => void; enabled?: boolean; extra?: React.ReactNode;
+  }) => (
+    enabled ? (
+      <button
+        onClick={onToggle}
+        className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
+      >
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">{num}</span>
+        <span className="text-xs transition-transform" style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
+        {label}
+        {extra}
+      </button>
+    ) : (
+      <h2 className="section-title">
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/[0.08] text-[10px] font-bold text-gray-400">{num}</span>
+        {label}
+        {extra}
+      </h2>
+    )
+  );
+
+  const chipStyle = { fontSize: '11px', padding: '2px 10px', borderRadius: '9999px', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', display: 'inline-flex', gap: '4px', alignItems: 'center', whiteSpace: 'nowrap' as const };
+  const accentChipStyle = { ...chipStyle, backgroundColor: 'hsl(var(--accent) / 0.1)', border: '1px solid hsl(var(--accent) / 0.2)' };
 
   return (
     <div className="min-h-screen">
@@ -252,148 +416,199 @@ function App() {
       </header>
 
       <main className="p-6" style={{ paddingTop: '1.5rem' }}>
-        {/* ── Step 1: Backtest Details ── */}
+        {/* ── Step 1: Backtest Details (collapsible) ── */}
         <section style={{ marginBottom: '1.5rem' }}>
-          <h2 className="section-title">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">1</span>
-            Backtest Details
-          </h2>
-          <div className="card">
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="w-24">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Symbol</label>
-                <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
-                  placeholder="SPY"
-                  onChange={(e) => setTicker(e.target.value.toUpperCase())} />
-              </div>
-              <div className="w-40">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Start Date</label>
-                <input type="date" className="input-field" value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)} />
-              </div>
-              <div className="w-40">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>End Date</label>
-                <input type="date" className="input-field" value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)} />
-              </div>
-              <div className="w-32">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Starting Cash</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-                  <input type="number" className="input-field !pl-7" value={startingCash}
-                    onChange={(e) => setStartingCash(Number(e.target.value))} />
+          <SectionHeader num={1} label="Backtest Details" open={section1Open} onToggle={() => setSection1Open((o) => !o)} />
+          {section1Open && (
+            <div className="card">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="w-24">
+                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Symbol</label>
+                  <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
+                    placeholder="SPY"
+                    onChange={(e) => handleSetTicker(e.target.value.toUpperCase())} />
                 </div>
-              </div>
-              <div className="w-24">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Commission</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-                  <input type="number" className="input-field !pl-7" step="0.05" min="0" value={commission}
-                    onChange={(e) => setCommission(Number(e.target.value))} />
+                <div className="w-40">
+                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Start Date</label>
+                  <input type="date" className="input-field" value={startDate}
+                    onChange={(e) => handleSetStartDate(e.target.value)} />
+                </div>
+                <div className="w-40">
+                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>End Date</label>
+                  <input type="date" className="input-field" value={endDate}
+                    onChange={(e) => handleSetEndDate(e.target.value)} />
+                </div>
+                <div className="w-32">
+                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Starting Cash</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                    <input type="number" className="input-field !pl-7" value={startingCash}
+                      onChange={(e) => handleSetStartingCash(Number(e.target.value))} />
+                  </div>
+                </div>
+                <div className="w-24">
+                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Commission</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                    <input type="number" className="input-field !pl-7" step="0.05" min="0" value={commission}
+                      onChange={(e) => handleSetCommission(Number(e.target.value))} />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </section>
 
-        {/* ── Step 2: Strategy ── */}
+        {/* ── Step 2: Strategy (collapsible) ── */}
         <section style={{ marginBottom: '1.5rem' }}>
-          <h2 className="section-title">
-            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${hasSelectedStrategy ? 'bg-[hsl(var(--accent))] text-[hsl(var(--primary-foreground))]' : 'bg-white/[0.08] text-gray-400'}`}>2</span>
-            Strategy
-          </h2>
-          <div className="card">
-            {/* Single-leg options */}
-            <div style={{ marginBottom: '2.5rem' }}>
-              <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>Select a Leg</h3>
-              <div className="flex flex-wrap gap-3 justify-center">
-                {SINGLE_LEG.map((s) => (
-                  <StrategyCard key={s.key} name={s.name} tag={s.tag}
-                    selected={strategy.type === s.key}
-                    onClick={() => handleStrategyChange(s.key)} />
-                ))}
+          <SectionHeader num={2} label="Strategy" open={section2Open}
+            onToggle={() => setSection2Open((o) => !o)}
+            enabled={hasSelectedStrategy || section2Open} />
+          {section2Open && (
+            <div className="card">
+              {/* Single-leg options */}
+              <div style={{ marginBottom: '2.5rem' }}>
+                <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>Select a Leg</h3>
+                <div className="flex flex-wrap gap-3 justify-center">
+                  {SINGLE_LEG.map((s) => (
+                    <StrategyCard key={s.key} name={s.name} tag={s.tag}
+                      selected={strategy.type === s.key}
+                      onClick={() => handleStrategyChange(s.key)} />
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Multi-leg strategies: groups side by side, cards stacked */}
-            <div>
-              <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>...or Choose a Strategy</h3>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                {STRATEGY_GROUPS.map((group, i) => (
-                  <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '14rem', paddingLeft: i > 0 ? '1rem' : undefined, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
-                    <p style={{ fontSize: '14px', color: '#d1d5db', textAlign: 'center', marginBottom: '4px' }}>{group.label}</p>
-                    {group.items.map((s) => (
-                      <StrategyCard key={s.key} name={s.name} tag={s.tag}
-                        selected={strategy.type === s.key}
-                        onClick={() => handleStrategyChange(s.key)} />
-                    ))}
-                  </div>
-                ))}
+              {/* Multi-leg strategies: groups side by side, cards stacked */}
+              <div>
+                <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>...or Choose a Strategy</h3>
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                  {STRATEGY_GROUPS.map((group, i) => (
+                    <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '14rem', paddingLeft: i > 0 ? '1rem' : undefined, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
+                      <p style={{ fontSize: '14px', color: '#d1d5db', textAlign: 'center', marginBottom: '4px' }}>{group.label}</p>
+                      {group.items.map((s) => (
+                        <StrategyCard key={s.key} name={s.name} tag={s.tag}
+                          selected={strategy.type === s.key}
+                          onClick={() => handleStrategyChange(s.key)} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </section>
 
         {/* ── Step 3: Entry & Exit Rules (collapsible) ── */}
         <section style={{ marginBottom: '1.5rem' }} className={hasSelectedStrategy ? '' : 'opacity-50'}>
-          {hasSelectedStrategy ? (
-            <button
-              onClick={() => setSection3Open((o) => !o)}
-              className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">3</span>
-              <span className="text-xs transition-transform" style={{ transform: section3Open ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
-              Entry & Exit Rules
-            </button>
-          ) : (
-            <h2 className="section-title">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/[0.08] text-[10px] font-bold text-gray-400">3</span>
-              Entry & Exit Rules
-            </h2>
-          )}
+          <SectionHeader num={3} label="Entry & Exit Rules" open={section3Open}
+            onToggle={() => setSection3Open((o) => !o)} enabled={hasSelectedStrategy} />
           {hasSelectedStrategy && section3Open && (
-            <StrategyPanel strategy={strategy} onChange={setStrategy} exitEnabled={exitEnabled} onExitToggle={setExitEnabled} underlyingPrice={syntheticConfig.start_price} />
+            <StrategyPanel strategy={strategy} onChange={handleSetStrategy} exitEnabled={exitEnabled} onExitToggle={handleSetExitEnabled} underlyingPrice={syntheticConfig.start_price} />
           )}
         </section>
 
         {/* ── Step 4: Advanced Filters (collapsible) ── */}
         <section style={{ marginBottom: '1.5rem' }} className={hasSelectedStrategy ? '' : 'opacity-50'}>
-          {hasSelectedStrategy ? (
-            <button
-              onClick={() => setSection4Open((o) => !o)}
-              className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
-            >
-              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${filterSummary().length > 0 ? 'bg-[hsl(var(--accent))] text-[hsl(var(--primary-foreground))]' : 'bg-white/[0.08] text-gray-400'}`}>4</span>
-              <span className="text-xs transition-transform" style={{ transform: section4Open ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
-              Advanced Filters
-              <span style={{ fontSize: '12px', fontWeight: 400, color: '#9ca3af', marginLeft: '4px' }}>Optional</span>
-            </button>
-          ) : (
-            <h2 className="section-title">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/[0.08] text-[10px] font-bold text-gray-400">4</span>
-              Advanced Filters
-              <span style={{ fontSize: '12px', fontWeight: 400, color: '#9ca3af', marginLeft: '4px' }}>Optional</span>
-            </h2>
-          )}
+          <SectionHeader num={4} label="Advanced Filters" open={section4Open}
+            onToggle={() => setSection4Open((o) => !o)} enabled={hasSelectedStrategy}
+            extra={<span style={{ fontSize: '12px', fontWeight: 400, color: '#9ca3af', marginLeft: '4px' }}>Optional</span>} />
           {hasSelectedStrategy && section4Open && (
-            <AdvancedSettings filters={filters} onChange={setFilters} />
+            <AdvancedSettings filters={filters} onChange={handleSetFilters} />
           )}
         </section>
 
-        {/* Spacer for sticky bottom bar */}
-        <div style={{ height: hasSelectedStrategy ? '120px' : '80px' }} />
+        {/* ── Loading progress ── */}
+        {isLoading && (
+          <section style={{ marginBottom: '1.5rem' }}>
+            <div className="card" style={{ maxWidth: '540px', margin: '2rem auto', textAlign: 'center', padding: '2rem 2.5rem' }}>
+              <p className="text-white text-lg font-semibold" style={{ marginBottom: '1rem' }}>Running backtest...</p>
+              <p className="text-sm" style={{ color: '#9ca3af', marginBottom: '1.25rem' }}>
+                Simulating {ticker} from {startDate} to {endDate}
+              </p>
+              {/* Progress bar */}
+              <div style={{ height: '6px', borderRadius: '3px', backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                <div style={{
+                  height: '100%', borderRadius: '3px',
+                  background: 'linear-gradient(90deg, hsl(var(--accent)), #12BAE6)',
+                  width: `${loadingProgress}%`,
+                  transition: 'width 0.15s ease-out',
+                }} />
+              </div>
+              <p className="text-xs" style={{ color: '#6b7280' }}>
+                {loadingProgress < 100 ? `${Math.round(loadingProgress)}% complete — est. ${Math.max(1, Math.round(3 - (loadingProgress / 100) * 3))}s remaining` : 'Finalizing...'}
+              </p>
+            </div>
+          </section>
+        )}
 
-        {/* Error */}
+        {/* ── Error ── */}
         {error && (
           <div className="bg-[hsl(var(--danger)/0.1)] border border-[hsl(var(--danger)/0.3)] rounded-lg p-4 mb-6">
             <p className="text-[hsl(var(--danger))] text-sm">{error}</p>
           </div>
         )}
 
-        {/* Results */}
-        {result && (
+        {/* ── Results ── */}
+        {result && !isLoading && (
           <section>
-            <h2 className="section-title">Results</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+              <h2 className="section-title" style={{ margin: 0 }}>Results</h2>
+              {isStale && (
+                <span style={{ fontSize: '12px', padding: '3px 12px', borderRadius: '9999px', backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', fontWeight: 500 }}>
+                  Settings changed — re-run for updated results
+                </span>
+              )}
+            </div>
+
+            {/* Per-trade estimates + realized stats */}
+            <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem 1.5rem' }}>
+              <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                {tradeEstimate && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wider" style={{ color: '#9ca3af', marginBottom: '0.5rem' }}>Per-Trade Estimates</p>
+                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                      <div>
+                        <p className="text-xs" style={{ color: '#9ca3af' }}>{tradeEstimate.isCredit ? 'Credit Received' : 'Debit Paid'}</p>
+                        <p className="text-sm font-mono font-semibold" style={{ color: tradeEstimate.isCredit ? 'hsl(var(--accent))' : '#f87171' }}>{fmtEst(Math.abs(tradeEstimate.creditOrDebit))}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs" style={{ color: '#9ca3af' }}>Margin / BPR</p>
+                        <p className="text-sm font-mono font-semibold text-white">{fmtEst(tradeEstimate.marginRequired)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs" style={{ color: '#9ca3af' }}>Max Gain</p>
+                        <p className="text-sm font-mono font-semibold" style={{ color: 'hsl(var(--accent))' }}>{fmtEst(tradeEstimate.maxGain)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs" style={{ color: '#9ca3af' }}>Max Loss</p>
+                        <p className="text-sm font-mono font-semibold" style={{ color: '#f87171' }}>{fmtEst(tradeEstimate.maxLoss)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div style={{ borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '2rem' }}>
+                  <p className="text-xs uppercase tracking-wider" style={{ color: '#9ca3af', marginBottom: '0.5rem' }}>Realized Performance</p>
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <div>
+                      <p className="text-xs" style={{ color: '#9ca3af' }}>Total P&L</p>
+                      <p className="text-sm font-mono font-semibold" style={{ color: result.total_pnl >= 0 ? 'hsl(var(--accent))' : '#f87171' }}>{formatCurrency(result.total_pnl)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs" style={{ color: '#9ca3af' }}>Avg P&L / Trade</p>
+                      <p className="text-sm font-mono font-semibold" style={{ color: result.avg_pnl_per_trade >= 0 ? 'hsl(var(--accent))' : '#f87171' }}>{formatCurrency(result.avg_pnl_per_trade)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs" style={{ color: '#9ca3af' }}>Win Rate</p>
+                      <p className="text-sm font-mono font-semibold text-white">{result.win_rate.toFixed(1)}%</p>
+                    </div>
+                    <div>
+                      <p className="text-xs" style={{ color: '#9ca3af' }}>Trades</p>
+                      <p className="text-sm font-mono font-semibold text-white">{result.total_trades}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div className="flex gap-6">
               {/* Left column: Charts + Trade Log */}
@@ -461,6 +676,9 @@ function App() {
             </div>
           </section>
         )}
+
+        {/* Spacer for sticky bottom bar */}
+        <div style={{ height: hasSelectedStrategy ? '140px' : '80px' }} />
       </main>
 
       {/* ── Sticky bottom bar ── */}
@@ -473,33 +691,70 @@ function App() {
         backgroundColor: 'hsl(220 14% 11% / 0.95)',
         backdropFilter: 'blur(12px)',
         borderTop: '1px solid rgba(255,255,255,0.08)',
-        padding: '12px 24px',
+        padding: '10px 24px',
       }}>
         {hasSelectedStrategy ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', maxWidth: '1400px', margin: '0 auto' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="flex flex-wrap gap-1.5" style={{ alignItems: 'center' }}>
-                {strategySummary().map((chip) => (
-                  <span key={chip.label} style={{ fontSize: '11px', padding: '2px 10px', borderRadius: '9999px', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', display: 'inline-flex', gap: '4px', alignItems: 'center', whiteSpace: 'nowrap' }}>
-                    <span style={{ color: '#9ca3af', fontWeight: 400 }}>{chip.label}</span>
-                    <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
-                  </span>
-                ))}
-                {filterSummary().map((chip) => (
-                  <span key={chip.label} style={{ fontSize: '11px', padding: '2px 10px', borderRadius: '9999px', backgroundColor: 'hsl(var(--accent) / 0.1)', border: '1px solid hsl(var(--accent) / 0.2)', display: 'inline-flex', gap: '4px', alignItems: 'center', whiteSpace: 'nowrap' }}>
-                    <span style={{ color: 'hsl(var(--accent))', fontWeight: 400 }}>{chip.label}</span>
-                    <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
-                  </span>
-                ))}
+          <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {/* Summary chips + trade estimates */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {/* Strategy & filter chips */}
+                <div className="flex flex-wrap gap-1.5" style={{ alignItems: 'center' }}>
+                  {strategySummary().map((chip) => (
+                    <span key={chip.label} style={chipStyle}>
+                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>{chip.label}</span>
+                      <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
+                    </span>
+                  ))}
+                  {filterSummary().map((chip) => (
+                    <span key={chip.label} style={accentChipStyle}>
+                      <span style={{ color: 'hsl(var(--accent))', fontWeight: 400 }}>{chip.label}</span>
+                      <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
+                    </span>
+                  ))}
+                </div>
+                {/* Per-trade estimate chips */}
+                {tradeEstimate && (
+                  <div className="flex flex-wrap gap-1.5" style={{ alignItems: 'center', marginTop: '4px' }}>
+                    <span style={{ ...chipStyle, backgroundColor: tradeEstimate.isCredit ? 'rgba(16,185,129,0.1)' : 'rgba(248,113,113,0.1)', border: tradeEstimate.isCredit ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(248,113,113,0.25)' }}>
+                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>{tradeEstimate.isCredit ? 'Credit' : 'Debit'}</span>
+                      <span style={{ color: tradeEstimate.isCredit ? '#10b981' : '#f87171', fontWeight: 600 }}>{fmtEst(Math.abs(tradeEstimate.creditOrDebit))}</span>
+                    </span>
+                    <span style={chipStyle}>
+                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>BPR</span>
+                      <span style={{ color: 'white', fontWeight: 600 }}>{fmtEst(tradeEstimate.marginRequired)}</span>
+                    </span>
+                    <span style={chipStyle}>
+                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>Max Gain</span>
+                      <span style={{ color: '#10b981', fontWeight: 600 }}>{fmtEst(tradeEstimate.maxGain)}</span>
+                    </span>
+                    <span style={chipStyle}>
+                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>Max Loss</span>
+                      <span style={{ color: '#f87171', fontWeight: 600 }}>{fmtEst(tradeEstimate.maxLoss)}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+              {/* Run button + stale warning */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                {isStale && (
+                  <span style={{ fontSize: '10px', color: '#fbbf24', fontWeight: 500 }}>Settings changed</span>
+                )}
+                <button
+                  onClick={handleRun}
+                  disabled={isLoading}
+                  style={{
+                    padding: '10px 40px', borderRadius: '8px', fontWeight: 700, fontSize: '14px',
+                    backgroundColor: isStale ? '#f59e0b' : 'hsl(var(--accent))',
+                    color: isStale ? '#000' : 'hsl(var(--primary-foreground))',
+                    border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer',
+                    opacity: isLoading ? 0.5 : 1, whiteSpace: 'nowrap',
+                  }}
+                >
+                  {isLoading ? 'Running...' : isStale ? 'Re-run Backtest' : 'Run Backtest'}
+                </button>
               </div>
             </div>
-            <button
-              onClick={handleRun}
-              disabled={isLoading}
-              style={{ padding: '10px 40px', borderRadius: '8px', fontWeight: 700, fontSize: '14px', backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--primary-foreground))', border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer', opacity: isLoading ? 0.5 : 1, whiteSpace: 'nowrap', flexShrink: 0 }}
-            >
-              {isLoading ? 'Running...' : 'Run Backtest'}
-            </button>
           </div>
         ) : (
           <div style={{ display: 'flex', justifyContent: 'center' }}>

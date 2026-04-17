@@ -120,6 +120,7 @@ export interface BacktestResponse {
   trades: TradeResult[];
   indicators: IndicatorSnapshot[];
   open_positions_count: number;
+  sp500_benchmark: { date: string; value: number }[];
 }
 
 export const DEFAULT_STRATEGY: StrategyConfig = {

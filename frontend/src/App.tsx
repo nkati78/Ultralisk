@@ -563,24 +563,43 @@ function App() {
           {result && !isLoading && section5Open && (
             <div>
 
-            {/* Performance stats bar */}
-            <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem 1.5rem' }}>
-              <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            {/* Strategy details + Performance stats */}
+            <div className="card" style={{ marginBottom: '1rem', padding: '0.75rem 1.25rem' }}>
+              {/* Strategy details row */}
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '0.75rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                {strategySummary().map((item) => (
+                  <div key={item.label} style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
+                    <p style={{ fontSize: '13px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{item.value}</p>
+                  </div>
+                ))}
+                {filterSummary().length > 0 && (
+                  <div style={{ width: '1px', height: '28px', backgroundColor: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
+                )}
+                {filterSummary().map((item) => (
+                  <div key={item.label} style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '10px', color: 'hsl(var(--accent))', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
+                    <p style={{ fontSize: '13px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{item.value}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Performance metrics row */}
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                 {[
                   { label: 'Total Return', value: formatPct(result.total_return_pct), color: result.total_return_pct >= 0 ? '#10b981' : '#f87171' },
+                  { label: 'Annual', value: formatPct(result.annualized_return), color: result.annualized_return >= 0 ? '#10b981' : '#f87171' },
                   { label: 'Total P&L', value: formatCurrency(result.total_pnl), color: result.total_pnl >= 0 ? '#10b981' : '#f87171' },
+                  { label: 'Avg P&L', value: formatCurrency(result.avg_pnl_per_trade), color: result.avg_pnl_per_trade >= 0 ? '#10b981' : '#f87171' },
                   { label: 'Win Rate', value: `${result.win_rate.toFixed(1)}%`, color: result.win_rate >= 50 ? '#10b981' : '#f87171' },
-                  { label: 'Total Trades', value: `${result.total_trades}`, color: 'white' },
-                  { label: 'Max Drawdown', value: `${result.max_drawdown_pct.toFixed(2)}%`, color: '#f87171' },
-                  { label: 'Sharpe Ratio', value: result.sharpe_ratio.toFixed(2), color: result.sharpe_ratio >= 0 ? '#10b981' : '#f87171' },
-                  { label: 'Annualized', value: formatPct(result.annualized_return), color: result.annualized_return >= 0 ? '#10b981' : '#f87171' },
-                  { label: 'Avg P&L/Trade', value: formatCurrency(result.avg_pnl_per_trade), color: result.avg_pnl_per_trade >= 0 ? '#10b981' : '#f87171' },
-                  { label: 'Avg Hold Days', value: result.avg_holding_days.toFixed(1), color: 'white' },
+                  { label: 'Drawdown', value: `${result.max_drawdown_pct.toFixed(2)}%`, color: '#f87171' },
+                  { label: 'Trades', value: `${result.total_trades}`, color: 'white' },
+                  { label: 'Sharpe', value: result.sharpe_ratio.toFixed(2), color: result.sharpe_ratio >= 0 ? '#10b981' : '#f87171' },
                   { label: 'Profit Factor', value: result.profit_factor >= 9999 ? '∞' : result.profit_factor.toFixed(2), color: result.profit_factor >= 1 ? '#10b981' : '#f87171' },
+                  { label: 'Hold Days', value: result.avg_holding_days.toFixed(1), color: 'white' },
                 ].map((stat) => (
-                  <div key={stat.label} style={{ textAlign: 'center', flex: '1 1 0', minWidth: '80px' }}>
-                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{stat.label}</p>
-                    <p style={{ fontSize: '15px', color: stat.color, fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{stat.value}</p>
+                  <div key={stat.label} style={{ textAlign: 'center', flex: '1 1 0', minWidth: 0 }}>
+                    <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{stat.label}</p>
+                    <p style={{ fontSize: '14px', color: stat.color, fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{stat.value}</p>
                   </div>
                 ))}
               </div>
@@ -595,7 +614,7 @@ function App() {
                   Your portfolio's total value over time, including cash and open positions.
                   A rising curve means the strategy is growing capital; dips represent drawdowns.
                 </p>
-                <EquityChart data={result.equity_curve} />
+                <EquityChart data={result.equity_curve} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
               </div>
 
               {/* Price + Indicators + RSI */}

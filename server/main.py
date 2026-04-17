@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import random
 from datetime import datetime, time
 
 from fastapi import FastAPI
@@ -340,6 +342,19 @@ def run_backtest(req: BacktestRequest):
 
     pf = result.profit_factor
 
+    # Generate mock S&P 500 benchmark (scaled to starting cash)
+    # ~10% annual return with realistic daily volatility (~16% annualized)
+    sorted_dates = sorted(result.equity_curve.keys())
+    sp500_rng = random.Random(12345)  # fixed seed for reproducibility
+    daily_drift = math.log(1.10) / 252  # ~10% annual
+    daily_vol = 0.16 / math.sqrt(252)
+    sp500_value = req.starting_cash
+    sp500_benchmark = []
+    for d in sorted_dates:
+        sp500_benchmark.append({"date": d.isoformat(), "value": round(sp500_value, 2)})
+        z = sp500_rng.gauss(0, 1)
+        sp500_value *= math.exp(daily_drift - 0.5 * daily_vol**2 + daily_vol * z)
+
     return BacktestResponse(
         total_return_pct=result.total_return_pct,
         total_pnl=result.total_pnl,
@@ -355,6 +370,7 @@ def run_backtest(req: BacktestRequest):
         trades=trades,
         indicators=indicators,
         open_positions_count=len(result.open_positions),
+        sp500_benchmark=sp500_benchmark,
     )
 
 

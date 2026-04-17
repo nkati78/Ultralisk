@@ -239,6 +239,7 @@ function App() {
   const [section3Open, setSection3Open] = useState(true);
   const [section4Open, setSection4Open] = useState(false);
   const [section5Open, setSection5Open] = useState(false);
+  const [chartTab, setChartTab] = useState<'equity' | 'price'>('equity');
   const [exitEnabled, setExitEnabled] = useState(false);
 
   const [syntheticConfig] = useState<SyntheticDataConfig>({
@@ -375,6 +376,7 @@ function App() {
       await new Promise((r) => setTimeout(r, 300)); // brief pause at 100%
       setResult(res);
       setSection5Open(true);
+      setChartTab('equity');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Backtest failed');
     } finally {
@@ -605,28 +607,56 @@ function App() {
               </div>
             </div>
 
-            {/* Charts + Trade Log */}
+            {/* Chart tabs + Trade Log */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {/* Equity Curve */}
-              <div className="card">
-                <h3 className="card-title">Equity Curve</h3>
-                <p className="text-xs text-gray-400 mb-3">
-                  Your portfolio's total value over time, including cash and open positions.
-                  A rising curve means the strategy is growing capital; dips represent drawdowns.
-                </p>
-                <EquityChart data={result.equity_curve} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
-              </div>
-
-              {/* Price + Indicators + RSI */}
-              {result.indicators.length > 0 && (
-                <div className="card">
-                  <h3 className="card-title">Price & Indicators</h3>
-                  <p className="text-xs text-gray-400 mb-3">
-                    Underlying price with optional technical indicator overlays.
-                  </p>
-                  <PriceChart data={result.indicators} />
+              {/* Tabbed charts */}
+              <div className="card" style={{ padding: 0 }}>
+                {/* Tab bar */}
+                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  {[
+                    { key: 'equity' as const, label: 'Equity Curve' },
+                    ...(result.indicators.length > 0 ? [{ key: 'price' as const, label: 'Price & Indicators' }] : []),
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setChartTab(tab.key)}
+                      style={{
+                        padding: '10px 20px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: chartTab === tab.key ? 'white' : '#6b7280',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        borderBottom: chartTab === tab.key ? '2px solid hsl(var(--accent))' : '2px solid transparent',
+                        cursor: 'pointer',
+                        transition: 'color 0.15s, border-color 0.15s',
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
-              )}
+                {/* Tab content */}
+                <div style={{ padding: '1rem 1.5rem' }}>
+                  {chartTab === 'equity' && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-3">
+                        Your portfolio's total value over time, including cash and open positions.
+                        A rising curve means the strategy is growing capital; dips represent drawdowns.
+                      </p>
+                      <EquityChart data={result.equity_curve} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
+                    </div>
+                  )}
+                  {chartTab === 'price' && result.indicators.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-3">
+                        Underlying price with optional technical indicator overlays.
+                      </p>
+                      <PriceChart data={result.indicators} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Trade Log */}
               <div className="card">

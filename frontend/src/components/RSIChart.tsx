@@ -30,6 +30,7 @@ export function RSIChart({ data }: Props) {
       height: 350,
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
       timeScale: { borderColor: 'rgba(255,255,255,0.1)' },
+      handleScale: { mouseWheel: false },
     });
 
     const series = chart.addSeries(LineSeries, {

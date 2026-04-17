@@ -44,6 +44,7 @@ export function EquityChart({ data, trades = [], sp500 = [] }: Props) {
       },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
       timeScale: { borderColor: 'rgba(255,255,255,0.1)' },
+      handleScale: { mouseWheel: false },
     });
 
     // S&P 500 benchmark (behind equity curve)

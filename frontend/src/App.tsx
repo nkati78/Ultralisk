@@ -606,9 +606,9 @@ function App() {
             </div>
 
             {/* Charts + Trade Log */}
-            <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {/* Equity Curve */}
-              <div className="card mb-6">
+              <div className="card">
                 <h3 className="card-title">Equity Curve</h3>
                 <p className="text-xs text-gray-400 mb-3">
                   Your portfolio's total value over time, including cash and open positions.
@@ -619,7 +619,7 @@ function App() {
 
               {/* Price + Indicators + RSI */}
               {result.indicators.length > 0 && (
-                <div className="card mb-6">
+                <div className="card">
                   <h3 className="card-title">Price & Indicators</h3>
                   <p className="text-xs text-gray-400 mb-3">
                     Underlying price with optional technical indicator overlays.
@@ -629,7 +629,7 @@ function App() {
               )}
 
               {/* Trade Log */}
-              <div className="card mb-6">
+              <div className="card">
                 <h3 className="card-title">Trade Log</h3>
                 <p className="text-xs text-gray-400 mb-3">
                   Each completed trade with entry/exit dates, P&L, and outcome.

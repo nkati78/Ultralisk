@@ -62,6 +62,7 @@ export function PriceChart({ data }: Props) {
         borderColor: 'rgba(255,255,255,0.1)',
         visible: !hasRsi,
       },
+      handleScale: { mouseWheel: false },
     });
     charts.push(priceChart);
 
@@ -142,6 +143,7 @@ export function PriceChart({ data }: Props) {
         height: 150,
         rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
         timeScale: { borderColor: 'rgba(255,255,255,0.1)' },
+        handleScale: { mouseWheel: false },
       });
       charts.push(rsiChart);
 

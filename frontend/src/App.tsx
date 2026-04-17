@@ -234,11 +234,7 @@ function App() {
     vwap: { enabled: false, direction: 'above' },
   });
 
-  const [section1Open, setSection1Open] = useState(true);
-  const [section2Open, setSection2Open] = useState(true);
-  const [section3Open, setSection3Open] = useState(true);
-  const [section4Open, setSection4Open] = useState(false);
-  const [section5Open, setSection5Open] = useState(false);
+  const [activeSection, setActiveSection] = useState(1);
   const [chartTab, setChartTab] = useState<'equity' | 'price'>('equity');
   const [exitEnabled, setExitEnabled] = useState(false);
 
@@ -334,11 +330,8 @@ function App() {
   const fmtEst = (v: number) => v === Infinity ? 'Unlimited' : formatCurrency(v);
 
   const handleRun = async () => {
-    // Collapse all setup sections
-    setSection1Open(false);
-    setSection2Open(false);
-    setSection3Open(false);
-    setSection4Open(false);
+    // Switch to loading — collapse all sections so progress bar is front-and-center
+    setActiveSection(0);
     setIsLoading(true);
     setLoadingProgress(0);
     setError(null);
@@ -375,7 +368,7 @@ function App() {
       setLoadingProgress(100);
       await new Promise((r) => setTimeout(r, 300)); // brief pause at 100%
       setResult(res);
-      setSection5Open(true);
+      setActiveSection(5);
       setChartTab('equity');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Backtest failed');
@@ -385,29 +378,17 @@ function App() {
     }
   };
 
-  /* ── Collapsible section header helper ── */
-  const SectionHeader = ({ num, label, open, onToggle, enabled = true, active, extra }: {
-    num: number; label: string; open: boolean; onToggle: () => void; enabled?: boolean; active?: boolean; extra?: React.ReactNode;
-  }) => {
-    const bubbleActive = active ?? enabled;
-    return enabled ? (
-      <button
-        onClick={onToggle}
-        className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
-      >
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold" style={{ backgroundColor: bubbleActive ? 'hsl(var(--accent))' : 'rgba(255,255,255,0.08)', color: bubbleActive ? 'hsl(var(--primary-foreground))' : '#9ca3af' }}>{num}</span>
-        <span className="text-xs transition-transform" style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
-        {label}
-        {extra}
-      </button>
-    ) : (
-      <h2 className="section-title">
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/[0.08] text-[10px] font-bold text-gray-400">{num}</span>
-        {label}
-        {extra}
-      </h2>
-    );
-  };
+  /* ── Step bar helpers ── */
+  const hasFiltersActive = filters.time_of_day.enabled || filters.rsi.enabled || filters.bollinger.enabled || filters.moving_average.enabled || filters.vwap.enabled;
+  const hasResults = !!result && !isLoading;
+
+  const steps: { num: number; label: string; sublabel?: string; enabled: boolean; active: boolean }[] = [
+    { num: 1, label: 'Details', enabled: true, active: true },
+    { num: 2, label: 'Strategy', enabled: true, active: hasSelectedStrategy },
+    { num: 3, label: 'Entry & Exit', enabled: hasSelectedStrategy, active: hasSelectedStrategy },
+    { num: 4, label: 'Advanced', sublabel: 'optional', enabled: hasSelectedStrategy, active: hasFiltersActive },
+    { num: 5, label: 'Results', enabled: hasResults, active: hasResults },
+  ];
 
 
   return (
@@ -417,118 +398,104 @@ function App() {
         <h1 className="text-xl font-bold text-white tracking-tight">ThesisLab</h1>
       </header>
 
+      {/* ── Horizontal step bar ── */}
+      <nav style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
+        backgroundColor: 'hsl(220 14% 10% / 0.95)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        padding: '0 24px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
+          {steps.map((step, idx) => {
+            const isCurrent = activeSection === step.num;
+            const isEnabled = step.enabled;
+            // "Next" = first enabled step after the current active one that isn't itself active/current
+            const isNext = isEnabled && !isCurrent && activeSection > 0 && step.num === activeSection + 1;
+            // If nothing is open (activeSection===0), highlight the first enabled step as next
+            const isPrompted = isEnabled && activeSection === 0 && step.num === 1;
+            const shouldPulse = isNext || isPrompted;
+            return (
+              <div key={step.num} style={{ display: 'flex', alignItems: 'center' }}>
+                {/* Connector line between steps */}
+                {idx > 0 && (
+                  <div style={{
+                    width: '24px',
+                    height: '2px',
+                    backgroundColor: step.enabled ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                    transition: 'background-color 0.2s',
+                  }} />
+                )}
+                <button
+                  onClick={() => isEnabled && setActiveSection(isCurrent ? 0 : step.num)}
+                  disabled={!isEnabled}
+                  style={{
+                    padding: '10px 16px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: isCurrent ? 'white' : shouldPulse ? '#e5e7eb' : isEnabled ? (step.active ? '#d1d5db' : '#9ca3af') : '#4b5563',
+                    backgroundColor: shouldPulse ? 'rgba(255,255,255,0.04)' : 'transparent',
+                    border: 'none',
+                    borderBottom: isCurrent ? '2px solid hsl(var(--accent))' : '2px solid transparent',
+                    borderRadius: shouldPulse ? '6px 6px 0 0' : undefined,
+                    cursor: isEnabled ? 'pointer' : 'default',
+                    transition: 'color 0.15s, border-color 0.15s, background-color 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    opacity: isEnabled ? 1 : 0.35,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '50%',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    backgroundColor: isCurrent ? 'hsl(var(--accent))' : shouldPulse ? 'rgba(29,233,182,0.25)' : step.active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+                    color: isCurrent ? 'hsl(var(--primary-foreground))' : shouldPulse ? '#1DE9B6' : step.active ? 'white' : '#6b7280',
+                    border: shouldPulse ? '1.5px solid rgba(29,233,182,0.4)' : '1.5px solid transparent',
+                    transition: 'all 0.2s',
+                  }}>{step.num}</span>
+                  {step.label}
+                  {step.sublabel && (
+                    <span style={{ fontSize: '10px', color: '#6b7280', fontWeight: 400, fontStyle: 'italic' }}>{step.sublabel}</span>
+                  )}
+                  {shouldPulse && (
+                    <span style={{ fontSize: '11px', opacity: 0.6 }}>›</span>
+                  )}
+                  {step.num === 5 && isStale && (
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#fbbf24', flexShrink: 0 }} />
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </nav>
+
       <main className="p-6" style={{ paddingTop: '1.5rem' }}>
-        {/* ── Step 1: Backtest Details (collapsible) ── */}
-        <section style={{ marginBottom: '1.5rem' }}>
-          <SectionHeader num={1} label="Backtest Details" open={section1Open} onToggle={() => setSection1Open((o) => !o)} />
-          {section1Open && (
-            <div className="card">
-              <div className="flex flex-wrap items-end gap-4">
-                <div className="w-24">
-                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Symbol</label>
-                  <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
-                    placeholder="SPY"
-                    onChange={(e) => handleSetTicker(e.target.value.toUpperCase())} />
-                </div>
-                <div className="w-40">
-                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Start Date</label>
-                  <input type="date" className="input-field" value={startDate}
-                    onChange={(e) => handleSetStartDate(e.target.value)} />
-                </div>
-                <div className="w-40">
-                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>End Date</label>
-                  <input type="date" className="input-field" value={endDate}
-                    onChange={(e) => handleSetEndDate(e.target.value)} />
-                </div>
-                <div className="w-32">
-                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Starting Cash</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-                    <input type="number" className="input-field !pl-7" value={startingCash}
-                      onChange={(e) => handleSetStartingCash(Number(e.target.value))} />
-                  </div>
-                </div>
-                <div className="w-24">
-                  <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Commission</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-                    <input type="number" className="input-field !pl-7" step="0.05" min="0" value={commission}
-                      onChange={(e) => handleSetCommission(Number(e.target.value))} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
+        {/* ── Error ── */}
+        {error && (
+          <div className="bg-[hsl(var(--danger)/0.1)] border border-[hsl(var(--danger)/0.3)] rounded-lg p-4 mb-6">
+            <p className="text-[hsl(var(--danger))] text-sm">{error}</p>
+          </div>
+        )}
 
-        {/* ── Step 2: Strategy (collapsible) ── */}
-        <section style={{ marginBottom: '1.5rem' }}>
-          <SectionHeader num={2} label="Strategy" open={section2Open}
-            onToggle={() => setSection2Open((o) => !o)}
-            enabled={hasSelectedStrategy || section2Open} />
-          {section2Open && (
-            <div className="card">
-              {/* Single-leg options */}
-              <div style={{ marginBottom: '2.5rem' }}>
-                <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>Select a Leg</h3>
-                <div className="flex flex-wrap gap-3 justify-center">
-                  {SINGLE_LEG.map((s) => (
-                    <StrategyCard key={s.key} name={s.name} tag={s.tag}
-                      selected={strategy.type === s.key}
-                      onClick={() => handleStrategyChange(s.key)} />
-                  ))}
-                </div>
-              </div>
-
-              {/* Multi-leg strategies: groups side by side, cards stacked */}
-              <div>
-                <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>...or Choose a Strategy</h3>
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                  {STRATEGY_GROUPS.map((group, i) => (
-                    <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '14rem', paddingLeft: i > 0 ? '1rem' : undefined, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
-                      <p style={{ fontSize: '14px', color: '#d1d5db', textAlign: 'center', marginBottom: '4px' }}>{group.label}</p>
-                      {group.items.map((s) => (
-                        <StrategyCard key={s.key} name={s.name} tag={s.tag}
-                          selected={strategy.type === s.key}
-                          onClick={() => handleStrategyChange(s.key)} />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* ── Step 3: Entry & Exit Rules (collapsible) ── */}
-        <section style={{ marginBottom: '1.5rem' }} className={hasSelectedStrategy ? '' : 'opacity-50'}>
-          <SectionHeader num={3} label="Entry & Exit Rules" open={section3Open}
-            onToggle={() => setSection3Open((o) => !o)} enabled={hasSelectedStrategy} />
-          {hasSelectedStrategy && section3Open && (
-            <StrategyPanel strategy={strategy} onChange={handleSetStrategy} exitEnabled={exitEnabled} onExitToggle={handleSetExitEnabled} underlyingPrice={syntheticConfig.start_price} />
-          )}
-        </section>
-
-        {/* ── Step 4: Advanced Rules (collapsible) ── */}
-        <section style={{ marginBottom: '1.5rem' }} className={hasSelectedStrategy ? '' : 'opacity-50'}>
-          <SectionHeader num={4} label="Advanced Rules" open={section4Open}
-            onToggle={() => setSection4Open((o) => !o)} enabled={hasSelectedStrategy}
-            active={filters.time_of_day.enabled || filters.rsi.enabled || filters.bollinger.enabled || filters.moving_average.enabled || filters.vwap.enabled}
-            extra={<span style={{ fontSize: '12px', fontWeight: 400, color: '#9ca3af', marginLeft: '4px' }}>Optional</span>} />
-          {hasSelectedStrategy && section4Open && (
-            <AdvancedSettings filters={filters} onChange={handleSetFilters} />
-          )}
-        </section>
-
-        {/* ── Loading progress ── */}
+        {/* ── Loading progress (full-screen centered) ── */}
         {isLoading && (
-          <section style={{ marginBottom: '1.5rem' }}>
-            <div className="card" style={{ maxWidth: '540px', margin: '2rem auto', textAlign: 'center', padding: '2rem 2.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 160px)' }}>
+            <div className="card" style={{ maxWidth: '540px', width: '100%', textAlign: 'center', padding: '3rem 2.5rem' }}>
               <p className="text-white text-lg font-semibold" style={{ marginBottom: '1rem' }}>Running backtest...</p>
               <p className="text-sm" style={{ color: '#9ca3af', marginBottom: '1.25rem' }}>
                 Simulating {ticker} from {startDate} to {endDate}
               </p>
-              {/* Progress bar */}
               <div style={{ height: '6px', borderRadius: '3px', backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: '0.75rem' }}>
                 <div style={{
                   height: '100%', borderRadius: '3px',
@@ -541,33 +508,102 @@ function App() {
                 {loadingProgress < 100 ? `${Math.round(loadingProgress)}% complete — est. ${Math.max(1, Math.round(3 - (loadingProgress / 100) * 3))}s remaining` : 'Finalizing...'}
               </p>
             </div>
-          </section>
-        )}
-
-        {/* ── Error ── */}
-        {error && (
-          <div className="bg-[hsl(var(--danger)/0.1)] border border-[hsl(var(--danger)/0.3)] rounded-lg p-4 mb-6">
-            <p className="text-[hsl(var(--danger))] text-sm">{error}</p>
           </div>
         )}
 
-        {/* ── Step 5: Results (collapsible, inactive until run) ── */}
-        <section style={{ marginBottom: '1.5rem' }} className={result && !isLoading ? '' : 'opacity-50'}>
-          <SectionHeader num={5} label="Results" open={section5Open}
-            onToggle={() => setSection5Open((o) => !o)}
-            enabled={!!result && !isLoading}
-            active={!!result && !isLoading}
-            extra={isStale ? (
-              <span style={{ fontSize: '12px', padding: '3px 12px', borderRadius: '9999px', backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', fontWeight: 500, marginLeft: '8px' }}>
-                Settings changed — re-run for updated results
-              </span>
-            ) : undefined} />
-          {result && !isLoading && section5Open && (
+        {/* ── Section 1: Backtest Details ── */}
+        {activeSection === 1 && (
+          <div className="card">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="w-24">
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Symbol</label>
+                <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
+                  placeholder="SPY"
+                  onChange={(e) => handleSetTicker(e.target.value.toUpperCase())} />
+              </div>
+              <div className="w-40">
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Start Date</label>
+                <input type="date" className="input-field" value={startDate}
+                  onChange={(e) => handleSetStartDate(e.target.value)} />
+              </div>
+              <div className="w-40">
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>End Date</label>
+                <input type="date" className="input-field" value={endDate}
+                  onChange={(e) => handleSetEndDate(e.target.value)} />
+              </div>
+              <div className="w-32">
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Starting Cash</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                  <input type="number" className="input-field !pl-7" value={startingCash}
+                    onChange={(e) => handleSetStartingCash(Number(e.target.value))} />
+                </div>
+              </div>
+              <div className="w-24">
+                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Commission</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                  <input type="number" className="input-field !pl-7" step="0.05" min="0" value={commission}
+                    onChange={(e) => handleSetCommission(Number(e.target.value))} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Section 2: Strategy ── */}
+        {activeSection === 2 && (
+          <div className="card">
+            <div style={{ marginBottom: '2.5rem' }}>
+              <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>Select a Leg</h3>
+              <div className="flex flex-wrap gap-3 justify-center">
+                {SINGLE_LEG.map((s) => (
+                  <StrategyCard key={s.key} name={s.name} tag={s.tag}
+                    selected={strategy.type === s.key}
+                    onClick={() => handleStrategyChange(s.key)} />
+                ))}
+              </div>
+            </div>
             <div>
+              <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>...or Choose a Strategy</h3>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                {STRATEGY_GROUPS.map((group, i) => (
+                  <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '14rem', paddingLeft: i > 0 ? '1rem' : undefined, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
+                    <p style={{ fontSize: '14px', color: '#d1d5db', textAlign: 'center', marginBottom: '4px' }}>{group.label}</p>
+                    {group.items.map((s) => (
+                      <StrategyCard key={s.key} name={s.name} tag={s.tag}
+                        selected={strategy.type === s.key}
+                        onClick={() => handleStrategyChange(s.key)} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Section 3: Entry & Exit Rules ── */}
+        {activeSection === 3 && hasSelectedStrategy && (
+          <StrategyPanel strategy={strategy} onChange={handleSetStrategy} exitEnabled={exitEnabled} onExitToggle={handleSetExitEnabled} underlyingPrice={syntheticConfig.start_price} />
+        )}
+
+        {/* ── Section 4: Advanced Rules ── */}
+        {activeSection === 4 && hasSelectedStrategy && (
+          <AdvancedSettings filters={filters} onChange={handleSetFilters} />
+        )}
+
+        {/* ── Section 5: Results ── */}
+        {activeSection === 5 && hasResults && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Stale warning */}
+            {isStale && (
+              <div style={{ textAlign: 'center', padding: '8px', borderRadius: '8px', backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                <span style={{ fontSize: '13px', color: '#fbbf24', fontWeight: 500 }}>Settings changed — re-run for updated results</span>
+              </div>
+            )}
 
             {/* Strategy details + Performance stats */}
-            <div className="card" style={{ marginBottom: '1rem', padding: '0.75rem 1.25rem' }}>
-              {/* Strategy details row */}
+            <div className="card" style={{ padding: '0.75rem 1.25rem' }}>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '0.75rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 {strategySummary().map((item) => (
                   <div key={item.label} style={{ textAlign: 'center' }}>
@@ -585,7 +621,6 @@ function App() {
                   </div>
                 ))}
               </div>
-              {/* Performance metrics row */}
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                 {[
                   { label: 'Total Return', value: formatPct(result.total_return_pct), color: result.total_return_pct >= 0 ? '#10b981' : '#f87171' },
@@ -607,79 +642,73 @@ function App() {
               </div>
             </div>
 
-            {/* Chart tabs + Trade Log */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {/* Tabbed charts */}
-              <div className="card" style={{ padding: 0 }}>
-                {/* Tab bar */}
-                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                  {[
-                    { key: 'equity' as const, label: 'Equity Curve' },
-                    ...(result.indicators.length > 0 ? [{ key: 'price' as const, label: 'Price & Indicators' }] : []),
-                  ].map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setChartTab(tab.key)}
-                      style={{
-                        padding: '10px 20px',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        color: chartTab === tab.key ? 'white' : '#6b7280',
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        borderBottom: chartTab === tab.key ? '2px solid hsl(var(--accent))' : '2px solid transparent',
-                        cursor: 'pointer',
-                        transition: 'color 0.15s, border-color 0.15s',
-                      }}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-                {/* Tab content */}
-                <div style={{ padding: '1rem 1.5rem' }}>
-                  {chartTab === 'equity' && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-3">
-                        Your portfolio's total value over time, including cash and open positions.
-                        A rising curve means the strategy is growing capital; dips represent drawdowns.
-                      </p>
-                      <EquityChart data={result.equity_curve} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
-                    </div>
-                  )}
-                  {chartTab === 'price' && result.indicators.length > 0 && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-3">
-                        Underlying price with optional technical indicator overlays.
-                      </p>
-                      <PriceChart data={result.indicators} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
-                    </div>
-                  )}
-                </div>
+            {/* Tabbed charts */}
+            <div className="card" style={{ padding: 0 }}>
+              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                {[
+                  { key: 'equity' as const, label: 'Equity Curve' },
+                  ...(result.indicators.length > 0 ? [{ key: 'price' as const, label: 'Price & Indicators' }] : []),
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setChartTab(tab.key)}
+                    style={{
+                      padding: '10px 20px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: chartTab === tab.key ? 'white' : '#6b7280',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      borderBottom: chartTab === tab.key ? '2px solid hsl(var(--accent))' : '2px solid transparent',
+                      cursor: 'pointer',
+                      transition: 'color 0.15s, border-color 0.15s',
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
+              <div style={{ padding: '1rem 1.5rem' }}>
+                {chartTab === 'equity' && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Your portfolio's total value over time, including cash and open positions.
+                      A rising curve means the strategy is growing capital; dips represent drawdowns.
+                    </p>
+                    <EquityChart data={result.equity_curve} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
+                  </div>
+                )}
+                {chartTab === 'price' && result.indicators.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Underlying price with optional technical indicator overlays.
+                    </p>
+                    <PriceChart data={result.indicators} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
+                  </div>
+                )}
+              </div>
+            </div>
 
-              {/* Trade Log */}
+            {/* Trade Log */}
+            <div className="card">
+              <h3 className="card-title">Trade Log</h3>
+              <p className="text-xs text-gray-400 mb-3">
+                Each completed trade with entry/exit dates, P&L, and outcome.
+              </p>
+              <TradeLog trades={result.trades} />
+            </div>
+
+            {/* Open Positions */}
+            {result.open_positions_count > 0 && (
               <div className="card">
-                <h3 className="card-title">Trade Log</h3>
-                <p className="text-xs text-gray-400 mb-3">
-                  Each completed trade with entry/exit dates, P&L, and outcome.
-                </p>
-                <TradeLog trades={result.trades} />
+                <h3 className="card-title">Open Positions: {result.open_positions_count}</h3>
               </div>
-
-              {/* Open Positions */}
-              {result.open_positions_count > 0 && (
-                <div className="card">
-                  <h3 className="card-title">Open Positions: {result.open_positions_count}</h3>
-                </div>
-              )}
-            </div>
-            </div>
-          )}
-        </section>
+            )}
+          </div>
+        )}
 
         {/* Spacer for sticky bottom bar */}
-        <div style={{ height: hasSelectedStrategy ? '160px' : '90px' }} />
+        <div style={{ height: hasSelectedStrategy ? '100px' : '90px' }} />
       </main>
 
       {/* ── Sticky bottom bar ── */}
@@ -697,27 +726,29 @@ function App() {
         {hasSelectedStrategy ? (
           <div style={{ margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              {/* Strategy setup details */}
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: '1rem', flexWrap: 'nowrap', alignItems: 'flex-end', overflow: 'hidden' }}>
-                {strategySummary().map((item) => (
-                  <div key={item.label} style={{ textAlign: 'center', flexShrink: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
-                    <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</p>
-                  </div>
-                ))}
-                {filterSummary().map((item) => (
-                  <div key={item.label} style={{ textAlign: 'center', flexShrink: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '11px', color: 'hsl(var(--accent))', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
-                    <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</p>
-                  </div>
-                ))}
-              </div>
-              {/* Divider */}
-              {tradeEstimate && (
+              {/* Strategy setup details — hidden when viewing results */}
+              {activeSection !== 5 && (
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: '1rem', flexWrap: 'nowrap', alignItems: 'flex-end', overflow: 'hidden' }}>
+                  {strategySummary().map((item) => (
+                    <div key={item.label} style={{ textAlign: 'center', flexShrink: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
+                      <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</p>
+                    </div>
+                  ))}
+                  {filterSummary().map((item) => (
+                    <div key={item.label} style={{ textAlign: 'center', flexShrink: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '11px', color: 'hsl(var(--accent))', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
+                      <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Divider — only when setup details are shown */}
+              {activeSection !== 5 && tradeEstimate && (
                 <div style={{ width: '1px', height: '42px', backgroundColor: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
               )}
-              {/* Per-trade estimates */}
-              {tradeEstimate && (
+              {/* Per-trade estimates — hidden when viewing results */}
+              {activeSection !== 5 && tradeEstimate && (
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'nowrap', alignItems: 'flex-end', flexShrink: 0 }}>
                   <div style={{ textAlign: 'center' }}>
                     <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{tradeEstimate.isCredit ? 'Credit' : 'Debit'}</p>
@@ -737,6 +768,8 @@ function App() {
                   </div>
                 </div>
               )}
+              {/* Spacer to push button right when details are hidden */}
+              {activeSection === 5 && <div style={{ flex: 1 }} />}
               {/* Run button + stale warning */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                 {isStale && (

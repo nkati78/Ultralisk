@@ -238,6 +238,7 @@ function App() {
   const [section2Open, setSection2Open] = useState(true);
   const [section3Open, setSection3Open] = useState(true);
   const [section4Open, setSection4Open] = useState(false);
+  const [section5Open, setSection5Open] = useState(false);
   const [exitEnabled, setExitEnabled] = useState(false);
 
   const [syntheticConfig] = useState<SyntheticDataConfig>({
@@ -373,6 +374,7 @@ function App() {
       setLoadingProgress(100);
       await new Promise((r) => setTimeout(r, 300)); // brief pause at 100%
       setResult(res);
+      setSection5Open(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Backtest failed');
     } finally {
@@ -547,17 +549,19 @@ function App() {
           </div>
         )}
 
-        {/* ── Results ── */}
-        {result && !isLoading && (
-          <section>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-              <h2 className="section-title" style={{ margin: 0 }}>Results</h2>
-              {isStale && (
-                <span style={{ fontSize: '12px', padding: '3px 12px', borderRadius: '9999px', backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', fontWeight: 500 }}>
-                  Settings changed — re-run for updated results
-                </span>
-              )}
-            </div>
+        {/* ── Step 5: Results (collapsible, inactive until run) ── */}
+        <section style={{ marginBottom: '1.5rem' }} className={result && !isLoading ? '' : 'opacity-50'}>
+          <SectionHeader num={5} label="Results" open={section5Open}
+            onToggle={() => setSection5Open((o) => !o)}
+            enabled={!!result && !isLoading}
+            active={!!result && !isLoading}
+            extra={isStale ? (
+              <span style={{ fontSize: '12px', padding: '3px 12px', borderRadius: '9999px', backgroundColor: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', fontWeight: 500, marginLeft: '8px' }}>
+                Settings changed — re-run for updated results
+              </span>
+            ) : undefined} />
+          {result && !isLoading && section5Open && (
+            <div>
 
             {/* Performance stats bar */}
             <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem 1.5rem' }}>
@@ -621,8 +625,9 @@ function App() {
                 </div>
               )}
             </div>
-          </section>
-        )}
+            </div>
+          )}
+        </section>
 
         {/* Spacer for sticky bottom bar */}
         <div style={{ height: hasSelectedStrategy ? '160px' : '90px' }} />

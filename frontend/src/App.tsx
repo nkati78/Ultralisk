@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { StrategyPanel } from './components/StrategyPanel';
 import { AdvancedSettings } from './components/AdvancedSettings';
-import { MetricCard } from './components/MetricCard';
 import { EquityChart } from './components/EquityChart';
 import { PriceChart } from './components/PriceChart';
 import { TradeLog } from './components/TradeLog';
@@ -383,15 +382,16 @@ function App() {
   };
 
   /* ── Collapsible section header helper ── */
-  const SectionHeader = ({ num, label, open, onToggle, enabled = true, extra }: {
-    num: number; label: string; open: boolean; onToggle: () => void; enabled?: boolean; extra?: React.ReactNode;
-  }) => (
-    enabled ? (
+  const SectionHeader = ({ num, label, open, onToggle, enabled = true, active, extra }: {
+    num: number; label: string; open: boolean; onToggle: () => void; enabled?: boolean; active?: boolean; extra?: React.ReactNode;
+  }) => {
+    const bubbleActive = active ?? enabled;
+    return enabled ? (
       <button
         onClick={onToggle}
         className="section-title flex items-center gap-2 w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
       >
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[hsl(var(--accent))] text-[10px] font-bold text-[hsl(var(--primary-foreground))]">{num}</span>
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold" style={{ backgroundColor: bubbleActive ? 'hsl(var(--accent))' : 'rgba(255,255,255,0.08)', color: bubbleActive ? 'hsl(var(--primary-foreground))' : '#9ca3af' }}>{num}</span>
         <span className="text-xs transition-transform" style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>&#9654;</span>
         {label}
         {extra}
@@ -402,11 +402,9 @@ function App() {
         {label}
         {extra}
       </h2>
-    )
-  );
+    );
+  };
 
-  const chipStyle = { fontSize: '11px', padding: '2px 10px', borderRadius: '9999px', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', display: 'inline-flex', gap: '4px', alignItems: 'center', whiteSpace: 'nowrap' as const };
-  const accentChipStyle = { ...chipStyle, backgroundColor: 'hsl(var(--accent) / 0.1)', border: '1px solid hsl(var(--accent) / 0.2)' };
 
   return (
     <div className="min-h-screen">
@@ -507,10 +505,11 @@ function App() {
           )}
         </section>
 
-        {/* ── Step 4: Advanced Filters (collapsible) ── */}
+        {/* ── Step 4: Advanced Rules (collapsible) ── */}
         <section style={{ marginBottom: '1.5rem' }} className={hasSelectedStrategy ? '' : 'opacity-50'}>
-          <SectionHeader num={4} label="Advanced Filters" open={section4Open}
+          <SectionHeader num={4} label="Advanced Rules" open={section4Open}
             onToggle={() => setSection4Open((o) => !o)} enabled={hasSelectedStrategy}
+            active={filters.time_of_day.enabled || filters.rsi.enabled || filters.bollinger.enabled || filters.moving_average.enabled || filters.vwap.enabled}
             extra={<span style={{ fontSize: '12px', fontWeight: 400, color: '#9ca3af', marginLeft: '4px' }}>Optional</span>} />
           {hasSelectedStrategy && section4Open && (
             <AdvancedSettings filters={filters} onChange={handleSetFilters} />
@@ -560,125 +559,73 @@ function App() {
               )}
             </div>
 
-            {/* Per-trade estimates + realized stats */}
+            {/* Performance stats bar */}
             <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem 1.5rem' }}>
-              <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-                {tradeEstimate && (
-                  <div>
-                    <p className="text-xs uppercase tracking-wider" style={{ color: '#9ca3af', marginBottom: '0.5rem' }}>Per-Trade Estimates</p>
-                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                      <div>
-                        <p className="text-xs" style={{ color: '#9ca3af' }}>{tradeEstimate.isCredit ? 'Credit Received' : 'Debit Paid'}</p>
-                        <p className="text-sm font-mono font-semibold" style={{ color: tradeEstimate.isCredit ? 'hsl(var(--accent))' : '#f87171' }}>{fmtEst(Math.abs(tradeEstimate.creditOrDebit))}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs" style={{ color: '#9ca3af' }}>Margin / BPR</p>
-                        <p className="text-sm font-mono font-semibold text-white">{fmtEst(tradeEstimate.marginRequired)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs" style={{ color: '#9ca3af' }}>Max Gain</p>
-                        <p className="text-sm font-mono font-semibold" style={{ color: 'hsl(var(--accent))' }}>{fmtEst(tradeEstimate.maxGain)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs" style={{ color: '#9ca3af' }}>Max Loss</p>
-                        <p className="text-sm font-mono font-semibold" style={{ color: '#f87171' }}>{fmtEst(tradeEstimate.maxLoss)}</p>
-                      </div>
-                    </div>
+              <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                {[
+                  { label: 'Total Return', value: formatPct(result.total_return_pct), color: result.total_return_pct >= 0 ? '#10b981' : '#f87171' },
+                  { label: 'Total P&L', value: formatCurrency(result.total_pnl), color: result.total_pnl >= 0 ? '#10b981' : '#f87171' },
+                  { label: 'Win Rate', value: `${result.win_rate.toFixed(1)}%`, color: result.win_rate >= 50 ? '#10b981' : '#f87171' },
+                  { label: 'Total Trades', value: `${result.total_trades}`, color: 'white' },
+                  { label: 'Max Drawdown', value: `${result.max_drawdown_pct.toFixed(2)}%`, color: '#f87171' },
+                  { label: 'Sharpe Ratio', value: result.sharpe_ratio.toFixed(2), color: result.sharpe_ratio >= 0 ? '#10b981' : '#f87171' },
+                  { label: 'Annualized', value: formatPct(result.annualized_return), color: result.annualized_return >= 0 ? '#10b981' : '#f87171' },
+                  { label: 'Avg P&L/Trade', value: formatCurrency(result.avg_pnl_per_trade), color: result.avg_pnl_per_trade >= 0 ? '#10b981' : '#f87171' },
+                  { label: 'Avg Hold Days', value: result.avg_holding_days.toFixed(1), color: 'white' },
+                  { label: 'Profit Factor', value: result.profit_factor >= 9999 ? '∞' : result.profit_factor.toFixed(2), color: result.profit_factor >= 1 ? '#10b981' : '#f87171' },
+                ].map((stat) => (
+                  <div key={stat.label} style={{ textAlign: 'center', flex: '1 1 0', minWidth: '80px' }}>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{stat.label}</p>
+                    <p style={{ fontSize: '15px', color: stat.color, fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{stat.value}</p>
                   </div>
-                )}
-                <div style={{ borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '2rem' }}>
-                  <p className="text-xs uppercase tracking-wider" style={{ color: '#9ca3af', marginBottom: '0.5rem' }}>Realized Performance</p>
-                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                    <div>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Total P&L</p>
-                      <p className="text-sm font-mono font-semibold" style={{ color: result.total_pnl >= 0 ? 'hsl(var(--accent))' : '#f87171' }}>{formatCurrency(result.total_pnl)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Avg P&L / Trade</p>
-                      <p className="text-sm font-mono font-semibold" style={{ color: result.avg_pnl_per_trade >= 0 ? 'hsl(var(--accent))' : '#f87171' }}>{formatCurrency(result.avg_pnl_per_trade)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Win Rate</p>
-                      <p className="text-sm font-mono font-semibold text-white">{result.win_rate.toFixed(1)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-xs" style={{ color: '#9ca3af' }}>Trades</p>
-                      <p className="text-sm font-mono font-semibold text-white">{result.total_trades}</p>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
-            <div className="flex gap-6">
-              {/* Left column: Charts + Trade Log */}
-              <div className="flex-1 min-w-0">
-                {/* Equity Curve */}
-                <div className="card mb-6">
-                  <h3 className="card-title">Equity Curve</h3>
-                  <p className="text-xs text-gray-400 mb-3">
-                    Your portfolio's total value over time, including cash and open positions.
-                    A rising curve means the strategy is growing capital; dips represent drawdowns.
-                  </p>
-                  <EquityChart data={result.equity_curve} />
-                </div>
-
-                {/* Price + Indicators + RSI */}
-                {result.indicators.length > 0 && (
-                  <div className="card mb-6">
-                    <h3 className="card-title">Price & Indicators</h3>
-                    <p className="text-xs text-gray-400 mb-3">
-                      Underlying price with optional technical indicator overlays.
-                    </p>
-                    <PriceChart data={result.indicators} />
-                  </div>
-                )}
-
-                {/* Trade Log */}
-                <div className="card mb-6">
-                  <h3 className="card-title">Trade Log</h3>
-                  <p className="text-xs text-gray-400 mb-3">
-                    Each completed trade with entry/exit dates, P&L, and outcome.
-                  </p>
-                  <TradeLog trades={result.trades} />
-                </div>
-
-                {/* Open Positions */}
-                {result.open_positions_count > 0 && (
-                  <div className="card">
-                    <h3 className="card-title">Open Positions: {result.open_positions_count}</h3>
-                  </div>
-                )}
+            {/* Charts + Trade Log */}
+            <div>
+              {/* Equity Curve */}
+              <div className="card mb-6">
+                <h3 className="card-title">Equity Curve</h3>
+                <p className="text-xs text-gray-400 mb-3">
+                  Your portfolio's total value over time, including cash and open positions.
+                  A rising curve means the strategy is growing capital; dips represent drawdowns.
+                </p>
+                <EquityChart data={result.equity_curve} />
               </div>
 
-              {/* Right column: Metrics */}
-              <div className="w-64 shrink-0 space-y-3">
-                <MetricCard label="Total Return" value={formatPct(result.total_return_pct)}
-                  positive={result.total_return_pct >= 0} />
-                <MetricCard label="Total P&L" value={formatCurrency(result.total_pnl)}
-                  positive={result.total_pnl >= 0} />
-                <MetricCard label="Win Rate" value={`${result.win_rate.toFixed(1)}%`}
-                  positive={result.win_rate >= 50} />
-                <MetricCard label="Total Trades" value={`${result.total_trades}`} />
-                <MetricCard label="Max Drawdown" value={`${result.max_drawdown_pct.toFixed(2)}%`}
-                  positive={false} />
-                <MetricCard label="Sharpe Ratio" value={result.sharpe_ratio.toFixed(2)}
-                  positive={result.sharpe_ratio >= 0} />
-                <MetricCard label="Annualized Return" value={formatPct(result.annualized_return)}
-                  positive={result.annualized_return >= 0} />
-                <MetricCard label="Avg P&L/Trade" value={formatCurrency(result.avg_pnl_per_trade)}
-                  positive={result.avg_pnl_per_trade >= 0} />
-                <MetricCard label="Avg Holding Days" value={result.avg_holding_days.toFixed(1)} />
-                <MetricCard label="Profit Factor" value={
-                  result.profit_factor >= 9999 ? '∞' : result.profit_factor.toFixed(2)
-                } positive={result.profit_factor >= 1} />
+              {/* Price + Indicators + RSI */}
+              {result.indicators.length > 0 && (
+                <div className="card mb-6">
+                  <h3 className="card-title">Price & Indicators</h3>
+                  <p className="text-xs text-gray-400 mb-3">
+                    Underlying price with optional technical indicator overlays.
+                  </p>
+                  <PriceChart data={result.indicators} />
+                </div>
+              )}
+
+              {/* Trade Log */}
+              <div className="card mb-6">
+                <h3 className="card-title">Trade Log</h3>
+                <p className="text-xs text-gray-400 mb-3">
+                  Each completed trade with entry/exit dates, P&L, and outcome.
+                </p>
+                <TradeLog trades={result.trades} />
               </div>
+
+              {/* Open Positions */}
+              {result.open_positions_count > 0 && (
+                <div className="card">
+                  <h3 className="card-title">Open Positions: {result.open_positions_count}</h3>
+                </div>
+              )}
             </div>
           </section>
         )}
 
         {/* Spacer for sticky bottom bar */}
-        <div style={{ height: hasSelectedStrategy ? '140px' : '80px' }} />
+        <div style={{ height: hasSelectedStrategy ? '160px' : '90px' }} />
       </main>
 
       {/* ── Sticky bottom bar ── */}
@@ -691,60 +638,61 @@ function App() {
         backgroundColor: 'hsl(220 14% 11% / 0.95)',
         backdropFilter: 'blur(12px)',
         borderTop: '1px solid rgba(255,255,255,0.08)',
-        padding: '10px 24px',
+        padding: '16px 28px',
       }}>
         {hasSelectedStrategy ? (
-          <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {/* Summary chips + trade estimates */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {/* Strategy & filter chips */}
-                <div className="flex flex-wrap gap-1.5" style={{ alignItems: 'center' }}>
-                  {strategySummary().map((chip) => (
-                    <span key={chip.label} style={chipStyle}>
-                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>{chip.label}</span>
-                      <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
-                    </span>
-                  ))}
-                  {filterSummary().map((chip) => (
-                    <span key={chip.label} style={accentChipStyle}>
-                      <span style={{ color: 'hsl(var(--accent))', fontWeight: 400 }}>{chip.label}</span>
-                      <span style={{ color: 'white', fontWeight: 600 }}>{chip.value}</span>
-                    </span>
-                  ))}
-                </div>
-                {/* Per-trade estimate chips */}
-                {tradeEstimate && (
-                  <div className="flex flex-wrap gap-1.5" style={{ alignItems: 'center', marginTop: '4px' }}>
-                    <span style={{ ...chipStyle, backgroundColor: tradeEstimate.isCredit ? 'rgba(16,185,129,0.1)' : 'rgba(248,113,113,0.1)', border: tradeEstimate.isCredit ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(248,113,113,0.25)' }}>
-                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>{tradeEstimate.isCredit ? 'Credit' : 'Debit'}</span>
-                      <span style={{ color: tradeEstimate.isCredit ? '#10b981' : '#f87171', fontWeight: 600 }}>{fmtEst(Math.abs(tradeEstimate.creditOrDebit))}</span>
-                    </span>
-                    <span style={chipStyle}>
-                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>BPR</span>
-                      <span style={{ color: 'white', fontWeight: 600 }}>{fmtEst(tradeEstimate.marginRequired)}</span>
-                    </span>
-                    <span style={chipStyle}>
-                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>Max Gain</span>
-                      <span style={{ color: '#10b981', fontWeight: 600 }}>{fmtEst(tradeEstimate.maxGain)}</span>
-                    </span>
-                    <span style={chipStyle}>
-                      <span style={{ color: '#9ca3af', fontWeight: 400 }}>Max Loss</span>
-                      <span style={{ color: '#f87171', fontWeight: 600 }}>{fmtEst(tradeEstimate.maxLoss)}</span>
-                    </span>
+          <div style={{ margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+              {/* Strategy setup details */}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: '1rem', flexWrap: 'nowrap', alignItems: 'flex-end', overflow: 'hidden' }}>
+                {strategySummary().map((item) => (
+                  <div key={item.label} style={{ textAlign: 'center', flexShrink: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
+                    <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</p>
                   </div>
-                )}
+                ))}
+                {filterSummary().map((item) => (
+                  <div key={item.label} style={{ textAlign: 'center', flexShrink: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '11px', color: 'hsl(var(--accent))', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
+                    <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</p>
+                  </div>
+                ))}
               </div>
+              {/* Divider */}
+              {tradeEstimate && (
+                <div style={{ width: '1px', height: '42px', backgroundColor: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+              )}
+              {/* Per-trade estimates */}
+              {tradeEstimate && (
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'nowrap', alignItems: 'flex-end', flexShrink: 0 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{tradeEstimate.isCredit ? 'Credit' : 'Debit'}</p>
+                    <p style={{ fontSize: '15px', color: tradeEstimate.isCredit ? '#10b981' : '#f87171', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(Math.abs(tradeEstimate.creditOrDebit))}</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>BPR</p>
+                    <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(tradeEstimate.marginRequired)}</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Max Gain</p>
+                    <p style={{ fontSize: '15px', color: '#10b981', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(tradeEstimate.maxGain)}</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Max Loss</p>
+                    <p style={{ fontSize: '15px', color: '#f87171', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(tradeEstimate.maxLoss)}</p>
+                  </div>
+                </div>
+              )}
               {/* Run button + stale warning */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                 {isStale && (
-                  <span style={{ fontSize: '10px', color: '#fbbf24', fontWeight: 500 }}>Settings changed</span>
+                  <span style={{ fontSize: '11px', color: '#fbbf24', fontWeight: 500 }}>Settings changed</span>
                 )}
                 <button
                   onClick={handleRun}
                   disabled={isLoading}
                   style={{
-                    padding: '10px 40px', borderRadius: '8px', fontWeight: 700, fontSize: '14px',
+                    padding: '12px 48px', borderRadius: '8px', fontWeight: 700, fontSize: '15px',
                     backgroundColor: isStale ? '#f59e0b' : 'hsl(var(--accent))',
                     color: isStale ? '#000' : 'hsl(var(--primary-foreground))',
                     border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer',

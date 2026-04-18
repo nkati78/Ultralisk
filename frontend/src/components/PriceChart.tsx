@@ -14,6 +14,8 @@ interface Props {
   data: IndicatorSnapshot[];
   trades?: TradeResult[];
   sp500?: { date: string; value: number }[];
+  buyHold?: { date: string; value: number }[];
+  ticker?: string;
   startingCash?: number;
 }
 
@@ -37,13 +39,14 @@ function formatCurrency(v: number): string {
     : `-$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function PriceChart({ data, trades = [], sp500 = [], startingCash }: Props) {
+export function PriceChart({ data, trades = [], sp500 = [], buyHold = [], ticker = 'Underlying', startingCash }: Props) {
   const priceContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [visibility, setVisibility] = useState<OverlayVisibility>(defaultVisibility);
   const [showPriceLines, setShowPriceLines] = useState(false);
   const [showSP500, setShowSP500] = useState(false);
+  const [showBuyHold, setShowBuyHold] = useState(false);
   const [showTrades, setShowTrades] = useState(false);
 
   const hasRsi = data.some((d) => d.rsi_14 !== null);
@@ -105,6 +108,31 @@ export function PriceChart({ data, trades = [], sp500 = [], startingCash }: Prop
         }));
 
       sp500Series.setData(sp500Data);
+    }
+
+    // Buy & Hold scaled to underlying price level
+    if (showBuyHold && buyHold.length > 0 && data.length > 0) {
+      const firstPrice = data[0].price;
+      const cash = startingCash ?? 100000;
+      const buyHoldSeries = priceChart.addSeries(LineSeries, {
+        color: '#8b5cf6',
+        lineWidth: 1,
+        lineStyle: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+
+      const priceDates = new Set(data.map((d) => d.date));
+      const firstBH = buyHold[0]?.value ?? cash;
+      const buyHoldData = buyHold
+        .filter((d) => priceDates.has(d.date))
+        .map((d) => ({
+          time: d.date,
+          value: (d.value / firstBH) * firstPrice,
+        }));
+
+      buyHoldSeries.setData(buyHoldData);
     }
 
     const priceSeries = priceChart.addSeries(LineSeries, {
@@ -292,7 +320,7 @@ export function PriceChart({ data, trades = [], sp500 = [], startingCash }: Prop
       charts.forEach((c) => c.remove());
       if (tooltip) tooltip.style.display = 'none';
     };
-  }, [data, trades, sp500, startingCash, visibility, showPriceLines, showSP500, showTrades, hasRsi]);
+  }, [data, trades, sp500, buyHold, startingCash, visibility, showPriceLines, showSP500, showBuyHold, showTrades, hasRsi]);
 
   return (
     <div>
@@ -337,6 +365,18 @@ export function PriceChart({ data, trades = [], sp500 = [], startingCash }: Prop
         >
           <span className="inline-block w-4 border-t border-dashed" style={{ borderColor: '#f59e0b', opacity: showSP500 ? 1 : 0.4 }} />
           S&P 500
+        </button>
+        {/* Buy & Hold toggle */}
+        <button
+          onClick={() => setShowBuyHold((p) => !p)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+            showBuyHold
+              ? 'bg-purple-500/15 text-purple-400'
+              : 'bg-white/[0.03] text-gray-500 hover:bg-white/[0.06] hover:text-gray-400'
+          }`}
+        >
+          <span className="inline-block w-4 border-t border-dashed" style={{ borderColor: '#8b5cf6', opacity: showBuyHold ? 1 : 0.4 }} />
+          {ticker}
         </button>
         {/* Trades toggle */}
         <button

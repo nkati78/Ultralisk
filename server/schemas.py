@@ -130,3 +130,4 @@ class BacktestResponse(BaseModel):
     indicators: list[IndicatorSnapshot]
     open_positions_count: int
     sp500_benchmark: list[dict[str, object]]  # [{date, value}]
+    buy_hold_benchmark: list[dict[str, object]]  # [{date, value}]

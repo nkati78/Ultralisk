@@ -355,6 +355,15 @@ def run_backtest(req: BacktestRequest):
         z = sp500_rng.gauss(0, 1)
         sp500_value *= math.exp(daily_drift - 0.5 * daily_vol**2 + daily_vol * z)
 
+    # Generate buy-and-hold benchmark for the underlying
+    # If you invested starting_cash into the underlying at the first price and held
+    buy_hold_benchmark = []
+    if indicators:
+        first_price = indicators[0].price
+        for ind in indicators:
+            buy_hold_value = req.starting_cash * (ind.price / first_price)
+            buy_hold_benchmark.append({"date": ind.date, "value": round(buy_hold_value, 2)})
+
     return BacktestResponse(
         total_return_pct=result.total_return_pct,
         total_pnl=result.total_pnl,
@@ -371,6 +380,7 @@ def run_backtest(req: BacktestRequest):
         indicators=indicators,
         open_positions_count=len(result.open_positions),
         sp500_benchmark=sp500_benchmark,
+        buy_hold_benchmark=buy_hold_benchmark,
     )
 
 

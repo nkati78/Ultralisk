@@ -675,7 +675,7 @@ function App() {
                       Your portfolio's total value over time, including cash and open positions.
                       A rising curve means the strategy is growing capital; dips represent drawdowns.
                     </p>
-                    <EquityChart data={result.equity_curve} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
+                    <EquityChart data={result.equity_curve} trades={result.trades} sp500={result.sp500_benchmark} buyHold={result.buy_hold_benchmark} ticker={ticker} startingCash={startingCash} />
                   </div>
                 )}
                 {chartTab === 'price' && result.indicators.length > 0 && (
@@ -683,7 +683,7 @@ function App() {
                     <p className="text-xs text-gray-400 mb-3">
                       Underlying price with optional technical indicator overlays.
                     </p>
-                    <PriceChart data={result.indicators} trades={result.trades} sp500={result.sp500_benchmark} startingCash={startingCash} />
+                    <PriceChart data={result.indicators} trades={result.trades} sp500={result.sp500_benchmark} buyHold={result.buy_hold_benchmark} ticker={ticker} startingCash={startingCash} />
                   </div>
                 )}
               </div>

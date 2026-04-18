@@ -6,6 +6,8 @@ interface Props {
   data: { date: string; equity: number }[];
   trades?: TradeResult[];
   sp500?: { date: string; value: number }[];
+  buyHold?: { date: string; value: number }[];
+  ticker?: string;
   startingCash?: number;
 }
 
@@ -15,10 +17,11 @@ function formatCurrency(v: number): string {
     : `-$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function EquityChart({ data, trades = [], sp500 = [] }: Props) {
+export function EquityChart({ data, trades = [], sp500 = [], buyHold = [], ticker = 'Underlying' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [showBenchmark, setShowBenchmark] = useState(true);
+  const [showBuyHold, setShowBuyHold] = useState(true);
   const [showMarkers, setShowMarkers] = useState(true);
 
   useEffect(() => {
@@ -59,6 +62,20 @@ export function EquityChart({ data, trades = [], sp500 = [] }: Props) {
       });
 
       benchmarkSeries.setData(sp500.map((d) => ({ time: d.date, value: d.value })));
+    }
+
+    // Buy & Hold benchmark (behind equity, in front of S&P)
+    if (showBuyHold && buyHold.length > 0) {
+      const buyHoldSeries = chart.addSeries(LineSeries, {
+        color: '#8b5cf6',
+        lineWidth: 1,
+        lineStyle: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+
+      buyHoldSeries.setData(buyHold.map((d) => ({ time: d.date, value: d.value })));
     }
 
     // Equity curve (on top)
@@ -161,7 +178,7 @@ export function EquityChart({ data, trades = [], sp500 = [] }: Props) {
       chart.remove();
       if (tooltip) tooltip.style.display = 'none';
     };
-  }, [data, trades, sp500, showBenchmark, showMarkers]);
+  }, [data, trades, sp500, buyHold, showBenchmark, showBuyHold, showMarkers]);
 
   return (
     <div>
@@ -181,6 +198,17 @@ export function EquityChart({ data, trades = [], sp500 = [] }: Props) {
         >
           <span className="inline-block w-4 border-t border-dashed" style={{ borderColor: '#f59e0b', opacity: showBenchmark ? 1 : 0.4 }} />
           S&P 500
+        </button>
+        <button
+          onClick={() => setShowBuyHold((p) => !p)}
+          className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-medium transition-colors ${
+            showBuyHold
+              ? 'bg-purple-500/15 text-purple-400'
+              : 'bg-white/[0.03] text-gray-500 hover:bg-white/[0.06] hover:text-gray-400'
+          }`}
+        >
+          <span className="inline-block w-4 border-t border-dashed" style={{ borderColor: '#8b5cf6', opacity: showBuyHold ? 1 : 0.4 }} />
+          {ticker}
         </button>
         <button
           onClick={() => setShowMarkers((p) => !p)}

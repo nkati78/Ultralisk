@@ -13,85 +13,16 @@ interface Props {
 /* ── Price-scaled width helpers ── */
 // Returns a sensible strike-width step and snap points scaled to the underlying price.
 // For a ~$450 stock (SPY) widths are $1-$50; for ~$5000 (SPX) widths are $5-$500.
-function widthSnaps(price: number): { step: number; snaps: number[]; max: number; conservative: number; balanced: number; aggressive: number } {
+function widthSnaps(price: number): { step: number; snaps: number[]; max: number } {
   if (price >= 1000) {
-    // SPX-class: $5000 range
-    return { step: 5, snaps: [5, 10, 25, 50, 75, 100, 200], max: 500, conservative: 25, balanced: 50, aggressive: 100 };
+    return { step: 5, snaps: [5, 10, 25, 50, 75, 100, 200], max: 500 };
   }
   if (price >= 300) {
-    // SPY/QQQ-class: $300-999 range
-    return { step: 1, snaps: [1, 2, 5, 10, 15, 20, 50], max: 50, conservative: 5, balanced: 5, aggressive: 10 };
+    return { step: 1, snaps: [1, 2, 5, 10, 15, 20, 50], max: 50 };
   }
-  // Small underlyings: under $300
-  return { step: 0.5, snaps: [0.5, 1, 2, 3, 5, 10], max: 25, conservative: 2, balanced: 3, aggressive: 5 };
+  return { step: 0.5, snaps: [0.5, 1, 2, 3, 5, 10], max: 25 };
 }
 
-/* ── Presets per strategy "family" ── */
-type Preset = { label: string; description: string; color: string; activeColor: string; values: Partial<StrategyConfig> };
-
-function getPresets(type: string, price: number): Preset[] {
-  const w = widthSnaps(price);
-  const isCredit = ['short_put', 'short_call', 'short_put_spread', 'short_call_spread', 'iron_condor', 'iron_butterfly', 'short_straddle', 'short_strangle', 'calendar_call_spread', 'calendar_put_spread'].includes(type);
-  const isDebit = ['long_call', 'long_put', 'debit_call_spread', 'debit_put_spread', 'long_call_butterfly', 'long_put_butterfly', 'straddle', 'long_strangle'].includes(type);
-
-  if (isCredit) {
-    return [
-      {
-        label: 'Conservative',
-        description: 'High win rate, smaller premium',
-        color: 'text-green-400',
-        activeColor: 'border-green-400 bg-green-400/[0.08] shadow-green-400/[0.15]',
-        values: { min_dte: 30, max_dte: 60, short_delta: 0.10, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 10, spread_width: w.conservative, wing_width: w.conservative },
-      },
-      {
-        label: 'Balanced',
-        description: 'Moderate risk/reward tradeoff',
-        color: 'text-yellow-400',
-        activeColor: 'border-yellow-400 bg-yellow-400/[0.08] shadow-yellow-400/[0.15]',
-        values: { min_dte: 25, max_dte: 45, short_delta: 0.20, close_at_profit_pct: 0.5, close_at_loss_pct: 2.0, close_at_dte: 7, spread_width: w.balanced, wing_width: w.balanced },
-      },
-      {
-        label: 'Aggressive',
-        description: 'Higher premium, lower win rate',
-        color: 'text-red-400',
-        activeColor: 'border-red-400 bg-red-400/[0.08] shadow-red-400/[0.15]',
-        values: { min_dte: 14, max_dte: 30, short_delta: 0.35, close_at_profit_pct: 0.75, close_at_loss_pct: 1.5, close_at_dte: 3, spread_width: w.aggressive, wing_width: w.aggressive },
-      },
-    ];
-  }
-  if (isDebit) {
-    return [
-      {
-        label: 'Conservative',
-        description: 'More time, tighter stops',
-        color: 'text-green-400',
-        activeColor: 'border-green-400 bg-green-400/[0.08] shadow-green-400/[0.15]',
-        values: { min_dte: 45, max_dte: 90, short_delta: 0.40, close_at_profit_pct: 0.5, close_at_loss_pct: 0.3, close_at_dte: 14, spread_width: w.conservative, wing_width: w.conservative },
-      },
-      {
-        label: 'Balanced',
-        description: 'Moderate expiry and targets',
-        color: 'text-yellow-400',
-        activeColor: 'border-yellow-400 bg-yellow-400/[0.08] shadow-yellow-400/[0.15]',
-        values: { min_dte: 30, max_dte: 60, short_delta: 0.30, close_at_profit_pct: 0.5, close_at_loss_pct: 0.5, close_at_dte: 7, spread_width: w.balanced, wing_width: w.balanced },
-      },
-      {
-        label: 'Aggressive',
-        description: 'Short-dated, ride winners',
-        color: 'text-red-400',
-        activeColor: 'border-red-400 bg-red-400/[0.08] shadow-red-400/[0.15]',
-        values: { min_dte: 14, max_dte: 30, short_delta: 0.20, close_at_profit_pct: 1.0, close_at_loss_pct: 0.75, close_at_dte: 3, spread_width: w.aggressive, wing_width: w.aggressive },
-      },
-    ];
-  }
-  return [];
-}
-
-function matchesPreset(strategy: StrategyConfig, preset: Preset): boolean {
-  return Object.entries(preset.values).every(
-    ([k, v]) => strategy[k as keyof StrategyConfig] === v
-  );
-}
 
 /* ── Editable value display ── */
 function EditableValue({ value, onChange, format, min, max, step }: {
@@ -288,54 +219,15 @@ function Slider({ label, value, min, max, step, help, tip, onChange, format, sna
 export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle, underlyingPrice }: Props) {
   const set = (patch: Partial<StrategyConfig>) => onChange({ ...strategy, ...patch });
   const type = strategy.type;
-  const presets = getPresets(type, underlyingPrice);
   const w = widthSnaps(underlyingPrice);
-  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   const isSpread = ['short_put_spread', 'short_call_spread', 'debit_call_spread', 'debit_put_spread', 'calendar_call_spread', 'calendar_put_spread'].includes(type);
   const isIronCondor = ['iron_condor', 'iron_butterfly', 'long_call_butterfly', 'long_put_butterfly'].includes(type);
   const isProtPut = type === 'protective_put';
-  const isStraddle = type === 'straddle' || type === 'short_straddle';
-
-  const applyPreset = (preset: Preset) => {
-    if (activePreset === preset.label) {
-      setActivePreset(null);
-    } else {
-      onChange({ ...strategy, ...preset.values });
-      setActivePreset(preset.label);
-    }
-  };
+  const isDebitStraddle = type === 'straddle';
 
   return (
     <div>
-      {/* Preset cards */}
-      {presets.length > 0 && (
-        <div className="flex flex-wrap gap-3 justify-center" style={{ marginBottom: '1.5rem' }}>
-          {presets.map((p) => {
-            const active = activePreset === p.label;
-            return (
-              <button
-                key={p.label}
-                onClick={() => applyPreset(p)}
-                style={{ minWidth: '11rem', minHeight: '4.25rem', flex: '1 1 11rem', maxWidth: '16rem' }}
-                className={`relative flex flex-col items-center justify-center gap-0.5 px-7 py-4 rounded-md border transition-all text-center ${
-                  active
-                    ? `${p.activeColor} shadow-lg`
-                    : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.04]'
-                }`}
-              >
-                {active && (
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-current" style={{ color: 'inherit' }} />
-                )}
-                <span className={`text-sm font-semibold ${active ? p.color : 'text-white'}`}>
-                  {p.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Entry Criteria */}
         <div className="card">
@@ -367,7 +259,7 @@ export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle, u
               format={(v) => v.toFixed(2)}
               tip="Target delta for the protective put. More negative = closer to ATM (more expensive but more protection)."
               onChange={(v) => set({ put_delta: v })} />
-          ) : !isStraddle ? (
+          ) : (type !== 'straddle' && type !== 'short_straddle') ? (
             <Slider label="Short Delta" value={strategy.short_delta}
               min={0.05} max={0.5} step={0.01}
               snaps={[0.10, 0.16, 0.20, 0.25, 0.30, 0.40]}
@@ -419,7 +311,7 @@ export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle, u
               snapLabels={(v) => `${(v * 100).toFixed(0)}%`}
               tip="Close the position when this percentage of max profit is reached. E.g. 50% means close when half the credit is captured."
               onChange={(v) => set({ close_at_profit_pct: v })} />
-            {!isStraddle && !isProtPut && (
+            {!isDebitStraddle && !isProtPut && (
               <Slider label="Stop Loss (x credit)" value={strategy.close_at_loss_pct}
                 min={0.5} max={5.0} step={0.25}
                 snaps={[1.0, 1.5, 2.0, 3.0, 4.0]}
@@ -428,7 +320,7 @@ export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle, u
                 tip="Close the position when the cost to close exceeds this multiple of the initial credit received."
                 onChange={(v) => set({ close_at_loss_pct: v })} />
             )}
-            {(isStraddle || isProtPut) && (
+            {(isDebitStraddle || isProtPut) && (
               <Slider label="Stop Loss" value={strategy.close_at_loss_pct}
                 min={0.1} max={1.0} step={0.05}
                 snaps={[0.25, 0.50, 0.75, 1.0]}

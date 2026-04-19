@@ -234,7 +234,7 @@ function App() {
     vwap: { enabled: false, direction: 'above' },
   });
 
-  const [activeSection, setActiveSection] = useState(1);
+  const [activeSection, setActiveSection] = useState<'setup' | 'results'>('setup');
   const [chartTab, setChartTab] = useState<'equity' | 'price'>('equity');
   const [exitEnabled, setExitEnabled] = useState(false);
 
@@ -330,8 +330,8 @@ function App() {
   const fmtEst = (v: number) => v === Infinity ? 'Unlimited' : formatCurrency(v);
 
   const handleRun = async () => {
-    // Switch to loading — collapse all sections so progress bar is front-and-center
-    setActiveSection(0);
+    // Switch to loading — show progress bar on setup view
+    setActiveSection('setup');
     setIsLoading(true);
     setLoadingProgress(0);
     setError(null);
@@ -368,7 +368,7 @@ function App() {
       setLoadingProgress(100);
       await new Promise((r) => setTimeout(r, 300)); // brief pause at 100%
       setResult(res);
-      setActiveSection(5);
+      setActiveSection('results');
       setChartTab('equity');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Backtest failed');
@@ -381,6 +381,22 @@ function App() {
   /* ── Step bar helpers ── */
   const hasFiltersActive = filters.time_of_day.enabled || filters.rsi.enabled || filters.bollinger.enabled || filters.moving_average.enabled || filters.vwap.enabled;
   const hasResults = !!result && !isLoading;
+
+  // Refs for scroll-to-section
+  const sectionRefs = {
+    1: useRef<HTMLDivElement>(null),
+    2: useRef<HTMLDivElement>(null),
+    3: useRef<HTMLDivElement>(null),
+    4: useRef<HTMLDivElement>(null),
+  };
+
+  const scrollToSection = (num: number) => {
+    if (activeSection === 'results') setActiveSection('setup');
+    const ref = sectionRefs[num as keyof typeof sectionRefs];
+    if (ref?.current) {
+      setTimeout(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
+  };
 
   const steps: { num: number; label: string; sublabel?: string; enabled: boolean; active: boolean }[] = [
     { num: 1, label: 'Details', enabled: true, active: true },
@@ -410,38 +426,42 @@ function App() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
           {steps.map((step, idx) => {
-            const isCurrent = activeSection === step.num;
+            const isSetupStep = step.num <= 4;
+            const isResultsStep = step.num === 5;
+            const isCurrent = isSetupStep ? activeSection === 'setup' : activeSection === 'results';
             const isEnabled = step.enabled;
-            // "Next" = first enabled step after the current active one that isn't itself active/current
-            const isNext = isEnabled && !isCurrent && activeSection > 0 && step.num === activeSection + 1;
-            // If nothing is open (activeSection===0), highlight the first enabled step as next
-            const isPrompted = isEnabled && activeSection === 0 && step.num === 1;
-            const shouldPulse = isNext || isPrompted;
             return (
               <div key={step.num} style={{ display: 'flex', alignItems: 'center' }}>
                 {/* Connector line between steps */}
                 {idx > 0 && (
                   <div style={{
-                    width: '24px',
+                    width: idx === 4 ? '32px' : '24px',
                     height: '2px',
                     backgroundColor: step.enabled ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
                     transition: 'background-color 0.2s',
                   }} />
                 )}
                 <button
-                  onClick={() => isEnabled && setActiveSection(isCurrent ? 0 : step.num)}
+                  onClick={() => {
+                    if (!isEnabled) return;
+                    if (isResultsStep) {
+                      setActiveSection('results');
+                    } else {
+                      setActiveSection('setup');
+                      scrollToSection(step.num);
+                    }
+                  }}
                   disabled={!isEnabled}
                   style={{
                     padding: '10px 16px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    color: isCurrent ? 'white' : shouldPulse ? '#e5e7eb' : isEnabled ? (step.active ? '#d1d5db' : '#9ca3af') : '#4b5563',
-                    backgroundColor: shouldPulse ? 'rgba(255,255,255,0.04)' : 'transparent',
+                    color: (isCurrent && (isResultsStep || isSetupStep)) ? (step.active ? 'white' : '#d1d5db') : isEnabled ? (step.active ? '#d1d5db' : '#9ca3af') : '#4b5563',
+                    backgroundColor: 'transparent',
                     border: 'none',
-                    borderBottom: isCurrent ? '2px solid hsl(var(--accent))' : '2px solid transparent',
-                    borderRadius: shouldPulse ? '6px 6px 0 0' : undefined,
+                    borderBottom: (isResultsStep && activeSection === 'results') ? '2px solid hsl(var(--accent))' : '2px solid transparent',
                     cursor: isEnabled ? 'pointer' : 'default',
-                    transition: 'color 0.15s, border-color 0.15s, background-color 0.2s',
+                    transition: 'color 0.15s, border-color 0.15s',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
@@ -458,17 +478,14 @@ function App() {
                     borderRadius: '50%',
                     fontSize: '11px',
                     fontWeight: 700,
-                    backgroundColor: isCurrent ? 'hsl(var(--accent))' : shouldPulse ? 'rgba(29,233,182,0.25)' : step.active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
-                    color: isCurrent ? 'hsl(var(--primary-foreground))' : shouldPulse ? '#1DE9B6' : step.active ? 'white' : '#6b7280',
-                    border: shouldPulse ? '1.5px solid rgba(29,233,182,0.4)' : '1.5px solid transparent',
+                    backgroundColor: step.active ? 'hsl(var(--accent))' : 'rgba(255,255,255,0.06)',
+                    color: step.active ? 'hsl(var(--primary-foreground))' : '#6b7280',
+                    border: '1.5px solid transparent',
                     transition: 'all 0.2s',
                   }}>{step.num}</span>
                   {step.label}
                   {step.sublabel && (
                     <span style={{ fontSize: '10px', color: '#6b7280', fontWeight: 400, fontStyle: 'italic' }}>{step.sublabel}</span>
-                  )}
-                  {shouldPulse && (
-                    <span style={{ fontSize: '11px', opacity: 0.6 }}>›</span>
                   )}
                   {step.num === 5 && isStale && (
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#fbbf24', flexShrink: 0 }} />
@@ -511,89 +528,114 @@ function App() {
           </div>
         )}
 
-        {/* ── Section 1: Backtest Details ── */}
-        {activeSection === 1 && (
-          <div className="card">
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="w-24">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Symbol</label>
-                <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
-                  placeholder="SPY"
-                  onChange={(e) => handleSetTicker(e.target.value.toUpperCase())} />
-              </div>
-              <div className="w-40">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Start Date</label>
-                <input type="date" className="input-field" value={startDate}
-                  onChange={(e) => handleSetStartDate(e.target.value)} />
-              </div>
-              <div className="w-40">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>End Date</label>
-                <input type="date" className="input-field" value={endDate}
-                  onChange={(e) => handleSetEndDate(e.target.value)} />
-              </div>
-              <div className="w-32">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Starting Cash</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-                  <input type="number" className="input-field !pl-7" value={startingCash}
-                    onChange={(e) => handleSetStartingCash(Number(e.target.value))} />
-                </div>
-              </div>
-              <div className="w-24">
-                <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Commission</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
-                  <input type="number" className="input-field !pl-7" step="0.05" min="0" value={commission}
-                    onChange={(e) => handleSetCommission(Number(e.target.value))} />
+        {/* ── Setup view: Sections 1–4 all visible ── */}
+        {activeSection === 'setup' && !isLoading && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Section 1: Backtest Details */}
+            <div ref={sectionRefs[1]} style={{ scrollMarginTop: '60px' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', fontSize: '10px', fontWeight: 700, backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--primary-foreground))' }}>1</span>
+                Backtest Details
+              </h3>
+              <div className="card">
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="w-24">
+                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Symbol</label>
+                    <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
+                      placeholder="SPY"
+                      onChange={(e) => handleSetTicker(e.target.value.toUpperCase())} />
+                  </div>
+                  <div className="w-40">
+                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Start Date</label>
+                    <input type="date" className="input-field" value={startDate}
+                      onChange={(e) => handleSetStartDate(e.target.value)} />
+                  </div>
+                  <div className="w-40">
+                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>End Date</label>
+                    <input type="date" className="input-field" value={endDate}
+                      onChange={(e) => handleSetEndDate(e.target.value)} />
+                  </div>
+                  <div className="w-32">
+                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Starting Cash</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                      <input type="number" className="input-field !pl-7" value={startingCash}
+                        onChange={(e) => handleSetStartingCash(Number(e.target.value))} />
+                    </div>
+                  </div>
+                  <div className="w-24">
+                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Commission</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                      <input type="number" className="input-field !pl-7" step="0.05" min="0" value={commission}
+                        onChange={(e) => handleSetCommission(Number(e.target.value))} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* ── Section 2: Strategy ── */}
-        {activeSection === 2 && (
-          <div className="card">
-            <div style={{ marginBottom: '2.5rem' }}>
-              <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>Select a Leg</h3>
-              <div className="flex flex-wrap gap-3 justify-center">
-                {SINGLE_LEG.map((s) => (
-                  <StrategyCard key={s.key} name={s.name} tag={s.tag}
-                    selected={strategy.type === s.key}
-                    onClick={() => handleStrategyChange(s.key)} />
-                ))}
-              </div>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>...or Choose a Strategy</h3>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                {STRATEGY_GROUPS.map((group, i) => (
-                  <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '14rem', paddingLeft: i > 0 ? '1rem' : undefined, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
-                    <p style={{ fontSize: '14px', color: '#d1d5db', textAlign: 'center', marginBottom: '4px' }}>{group.label}</p>
-                    {group.items.map((s) => (
+            {/* Section 2: Strategy */}
+            <div ref={sectionRefs[2]} style={{ scrollMarginTop: '60px' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', fontSize: '10px', fontWeight: 700, backgroundColor: hasSelectedStrategy ? 'hsl(var(--accent))' : 'rgba(255,255,255,0.06)', color: hasSelectedStrategy ? 'hsl(var(--primary-foreground))' : '#6b7280' }}>2</span>
+                Strategy
+              </h3>
+              <div className="card">
+                <div style={{ marginBottom: '2.5rem' }}>
+                  <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>Select a Leg</h3>
+                  <div className="flex flex-wrap gap-3 justify-center">
+                    {SINGLE_LEG.map((s) => (
                       <StrategyCard key={s.key} name={s.name} tag={s.tag}
                         selected={strategy.type === s.key}
                         onClick={() => handleStrategyChange(s.key)} />
                     ))}
                   </div>
-                ))}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>...or Choose a Strategy</h3>
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                    {STRATEGY_GROUPS.map((group, i) => (
+                      <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '14rem', paddingLeft: i > 0 ? '1rem' : undefined, borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
+                        <p style={{ fontSize: '14px', color: '#d1d5db', textAlign: 'center', marginBottom: '4px' }}>{group.label}</p>
+                        {group.items.map((s) => (
+                          <StrategyCard key={s.key} name={s.name} tag={s.tag}
+                            selected={strategy.type === s.key}
+                            onClick={() => handleStrategyChange(s.key)} />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* Section 3: Entry & Exit Rules */}
+            {hasSelectedStrategy && (
+              <div ref={sectionRefs[3]} style={{ scrollMarginTop: '60px' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', fontSize: '10px', fontWeight: 700, backgroundColor: hasSelectedStrategy ? 'hsl(var(--accent))' : 'rgba(255,255,255,0.06)', color: hasSelectedStrategy ? 'hsl(var(--primary-foreground))' : '#6b7280' }}>3</span>
+                  Entry & Exit Rules
+                </h3>
+                <StrategyPanel strategy={strategy} onChange={handleSetStrategy} exitEnabled={exitEnabled} onExitToggle={handleSetExitEnabled} underlyingPrice={syntheticConfig.start_price} />
+              </div>
+            )}
+
+            {/* Section 4: Advanced Rules */}
+            {hasSelectedStrategy && (
+              <div ref={sectionRefs[4]} style={{ scrollMarginTop: '60px' }}>
+                <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', fontSize: '10px', fontWeight: 700, backgroundColor: hasFiltersActive ? 'hsl(var(--accent))' : 'rgba(255,255,255,0.06)', color: hasFiltersActive ? 'hsl(var(--primary-foreground))' : '#6b7280' }}>4</span>
+                  Advanced Rules <span style={{ fontWeight: 400, fontStyle: 'italic', color: '#6b7280', fontSize: '11px' }}>— optional</span>
+                </h3>
+                <AdvancedSettings filters={filters} onChange={handleSetFilters} />
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── Section 3: Entry & Exit Rules ── */}
-        {activeSection === 3 && hasSelectedStrategy && (
-          <StrategyPanel strategy={strategy} onChange={handleSetStrategy} exitEnabled={exitEnabled} onExitToggle={handleSetExitEnabled} underlyingPrice={syntheticConfig.start_price} />
-        )}
-
-        {/* ── Section 4: Advanced Rules ── */}
-        {activeSection === 4 && hasSelectedStrategy && (
-          <AdvancedSettings filters={filters} onChange={handleSetFilters} />
-        )}
-
-        {/* ── Section 5: Results ── */}
-        {activeSection === 5 && hasResults && (
+        {/* ── Results view: Section 5 ── */}
+        {activeSection === 'results' && hasResults && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Stale warning */}
             {isStale && (
@@ -727,7 +769,7 @@ function App() {
           <div style={{ margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
               {/* Strategy setup details — hidden when viewing results */}
-              {activeSection !== 5 && (
+              {activeSection !== 'results' && (
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: '1rem', flexWrap: 'nowrap', alignItems: 'flex-end', overflow: 'hidden' }}>
                   {strategySummary().map((item) => (
                     <div key={item.label} style={{ textAlign: 'center', flexShrink: 1, minWidth: 0 }}>
@@ -744,11 +786,11 @@ function App() {
                 </div>
               )}
               {/* Divider — only when setup details are shown */}
-              {activeSection !== 5 && tradeEstimate && (
+              {activeSection !== 'results' && tradeEstimate && (
                 <div style={{ width: '1px', height: '42px', backgroundColor: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
               )}
               {/* Per-trade estimates — hidden when viewing results */}
-              {activeSection !== 5 && tradeEstimate && (
+              {activeSection !== 'results' && tradeEstimate && (
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'nowrap', alignItems: 'flex-end', flexShrink: 0 }}>
                   <div style={{ textAlign: 'center' }}>
                     <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{tradeEstimate.isCredit ? 'Credit' : 'Debit'}</p>
@@ -769,7 +811,7 @@ function App() {
                 </div>
               )}
               {/* Spacer to push button right when details are hidden */}
-              {activeSection === 5 && <div style={{ flex: 1 }} />}
+              {activeSection === 'results' && <div style={{ flex: 1 }} />}
               {/* Run button + stale warning */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                 {isStale && (

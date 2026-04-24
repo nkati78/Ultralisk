@@ -1,0 +1,28 @@
+## About Me
+
+I'm a technology product manager with an MS in Information Systems and an MBA. I work in tech and am actively using AI to:
+- Learn more about AI itself — how it works, where it's headed, how to leverage it
+- Find ways to apply AI to my job and make my workflows more efficient
+- Build side projects (like full-stack web apps) to develop hands-on technical skills
+
+## How to Communicate
+
+- Be concise and direct. Skip preambles and summaries.
+- Don't over-explain concepts I already know — product management, UX, business strategy, systems thinking. I have deep experience here.
+- Do explain technical implementation details, coding patterns, and AI/ML concepts when they're non-obvious — I'm actively learning these.
+- When proposing options, give me a short numbered list with tradeoffs. I'll pick.
+- Don't hedge excessively. If you have a recommendation, lead with it.
+
+## What I Care About
+
+- Practical application over theory. Show me how to use it, not just how it works.
+- Efficiency gains — I'm always looking for "how can this be faster/simpler?"
+- Product thinking — I evaluate tools and features through the lens of user experience and value delivery.
+- Shipping over perfection — iterate quickly, polish later.
+
+## What to Avoid
+
+- Don't give me generic advice I could find in a Google search.
+- Don't pad responses with caveats and disclaimers unless genuinely important.
+- Don't assume I need hand-holding on business or product topics.
+- Don't repeat back what I just said before answering.

@@ -1,46 +1,59 @@
 ---
 name: review-frontend
-description: Review the Streamlit frontend for UI consistency, alignment, and pixel-perfect layout. Use when the user wants to check the frontend code quality or fix visual issues.
+description: Review the React frontend for UI consistency, alignment, and code quality. Use when the user wants to check the frontend code or fix visual issues.
 ---
 
-When reviewing the frontend (`app.py`):
+When reviewing the frontend (React + TypeScript + Tailwind CSS + Vite):
 
-## Layout & Alignment Checks
+## Architecture Overview
 
-1. **Column balance**: Verify `st.columns()` calls use consistent widths. Related controls should be grouped logically (entry criteria together, exit criteria together).
+- **`frontend/src/App.tsx`** — Main application file with all state, step bar navigation, and section layout
+- **`frontend/src/components/`** — Reusable chart and UI components
+  - `EquityChart.tsx` — Equity curve with S&P 500, buy-and-hold benchmarks, trade markers (lightweight-charts v5)
+  - `PriceChart.tsx` — Price & indicators chart with RSI sub-chart, overlays, trade markers
+  - `StrategyPanel.tsx` — Entry/exit criteria sliders with snap points and editable values
+  - `AdvancedSettings.tsx` — RSI, Bollinger, MA, VWAP, time-of-day filter toggles
+  - `TradeLog.tsx` — Trade results table
+  - `InfoTip.tsx` — Hover tooltip component
+  - `MetricCard.tsx` — (unused, can be removed)
+- **`frontend/src/types/api.ts`** — TypeScript interfaces matching backend Pydantic models
+- **`frontend/src/lib/utils.ts`** — Shared utilities (formatCurrency, etc.)
 
-2. **Consistent spacing**: Check for `st.markdown("---")` dividers between sections. Every major section should have a header (`st.header` or `st.subheader`).
+## Layout & Navigation
 
-3. **Widget consistency**: Ensure similar parameters use the same widget type across strategies:
-   - DTE ranges → `st.slider` with matching min/max bounds
-   - Delta → `st.slider` with `format="%.2f"`
-   - Dollar amounts → `st.number_input` with `step` and `format`
-   - Percentages → `st.slider` with clear labels showing %
+1. **Step bar**: Sticky horizontal nav with steps 1-4 (setup) and 5 (results). Steps 1-4 render together on one scrollable page. Step 5 swaps to a separate results view. Clicking steps 1-4 scrolls to that section via refs.
 
-4. **Labels & help text**: Every input should have a clear label. Non-obvious parameters need `help=` tooltips. Units should be in labels (e.g., "Spread Width ($)", "Take Profit (%)").
+2. **Section headings**: Each section (1-4) has a numbered circle using `hsl(var(--accent))` teal when active, `rgba(255,255,255,0.06)` when inactive.
 
-## Metric Display Checks
+3. **Sticky bottom bar**: Shows strategy summary + trade estimates + Run button on setup view. Hides summary details on results view, keeping the button right-aligned.
 
-5. **Metric cards**: Results should use `st.metric()` in evenly-sized columns. Format consistently:
-   - Percentages: `f"{value:.2f}%"`
-   - Dollar amounts: `f"${value:,.2f}"`
-   - Counts: `f"{value}"`
+4. **Loading state**: Full-screen centered progress bar with `activeSection = 'setup'` and `isLoading = true`.
 
-6. **Charts**: Equity curve should use `use_container_width=True`. Axes should be labeled. Check that empty data doesn't cause chart errors.
+## Chart Conventions (lightweight-charts v5)
 
-7. **Trade log table**: Columns should have readable headers. P&L should be formatted as currency. Use `hide_index=True`.
+- Use `createChart()`, `chart.addSeries(LineSeries, ...)`, `createSeriesMarkers()` — NOT v4 API
+- Always set `handleScale: { mouseWheel: false }` to prevent scroll hijacking
+- Tooltip overlays use `subscribeCrosshairMove` with absolute-positioned divs
+- Color conventions:
+  - Strategy/equity: `#1DE9B6` (teal accent)
+  - S&P 500 benchmark: `#f59e0b` (amber, dashed)
+  - Buy & Hold / ticker: `#8b5cf6` (purple, dashed)
+  - Wins: `#10b981` / Losses: `#f87171`
+
+## Styling Conventions
+
+- Dark theme: background `hsl(220 14% 10%)`, cards use `.card` class
+- Accent color: `hsl(var(--accent))` — teal green
+- Font: Inter for UI, monospace for numbers/values
+- Inline styles for dynamic values, Tailwind classes for static layout
+- Toggle buttons: accent-tinted bg when active, `bg-white/[0.03]` when inactive
 
 ## Code Quality Checks
 
-8. **Strategy parity**: Every strategy in the sidebar dropdown must have a matching parameter panel in the main area AND a matching case in `build_strategy()`. Missing any = runtime error.
-
-9. **Variable scoping**: Ensure slider/input variables (like `min_dte`, `short_delta`) are defined in all code paths before `build_strategy()` uses them. Streamlit reruns the whole script on interaction.
-
-10. **Error handling**: Check for `st.stop()` after `st.error()`. Verify empty results don't crash the display (no trades, empty equity curve).
-
-## How to Fix Issues
-
-- Read `app.py` fully before suggesting changes
-- Fix alignment by adjusting column ratios or reordering widgets
-- Ensure all strategies follow the same visual pattern
-- Test by running `py -m streamlit run app.py` and checking each strategy
+1. **Type safety**: Run `npx tsc --noEmit` after changes — must compile clean
+2. **Strategy parity**: Every strategy key in `STRATEGY_GROUPS` / `SINGLE_LEG` must have:
+   - A matching case in `server/main.py` `_build_strategy()`
+   - Defaults in `getStrategyDefaults()` in App.tsx
+   - Correct credit/debit classification in `CREDIT_STRATEGIES`
+3. **Unused imports**: Remove any imports no longer referenced
+4. **Props consistency**: Chart components accept `data, trades, sp500, buyHold, ticker, startingCash`

@@ -88,6 +88,15 @@ export interface TradeResult {
   pnl: number;
   days_held: number;
   result: string;
+  // Enriched fields
+  exit_reason: string;
+  entry_underlying_price: number;
+  exit_underlying_price: number;
+  contracts: number;
+  notional_value: number;
+  entry_delta: number | null;
+  entry_theta: number | null;
+  entry_vega: number | null;
 }
 
 export interface IndicatorSnapshot {

@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 
-from thesislab.domain import Leg, OptionType, OptionsChain, Position, Trade
+from thesislab.domain import CloseSignal, ExitReason, Leg, OptionType, OptionsChain, Position, Trade
 from thesislab.strategies.utils import find_current_contract, intrinsic_value
 
 
@@ -98,15 +98,15 @@ class VerticalSpread:
             return []
         return [Trade(legs=legs, trade_date=chain.quote_date, net_premium=net_credit)]
 
-    def should_close(self, position: Position, chain: OptionsChain) -> Trade | None:
+    def should_close(self, position: Position, chain: OptionsChain) -> CloseSignal | None:
         legs = position.entry_trade.legs
         dte = min(leg.contract.dte(chain.quote_date) for leg in legs)
 
         if dte <= 0:
-            return self._close_at_expiration(position, chain)
+            return CloseSignal(self._close_at_expiration(position, chain), ExitReason.EXPIRATION)
 
         if dte <= self.close_at_dte:
-            return self._close_at_market(position, chain)
+            return CloseSignal(self._close_at_market(position, chain), ExitReason.DTE_LIMIT)
 
         cost = self._cost_to_close(position, chain)
         if cost is None:
@@ -118,10 +118,10 @@ class VerticalSpread:
 
         profit = entry_credit - cost
         if profit / entry_credit >= self.close_at_profit_pct:
-            return self._close_at_market(position, chain)
+            return CloseSignal(self._close_at_market(position, chain), ExitReason.PROFIT_TARGET)
 
         if cost / entry_credit >= (1 + self.close_at_loss_pct):
-            return self._close_at_market(position, chain)
+            return CloseSignal(self._close_at_market(position, chain), ExitReason.STOP_LOSS)
 
         return None
 

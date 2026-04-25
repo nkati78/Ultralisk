@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from thesislab.domain import ClosedPosition, Leg, OptionsChain, Position, Trade
+from thesislab.domain import ClosedPosition, ExitReason, Leg, OptionsChain, Position, Trade
 
 
 MULTIPLIER = 100  # standard options multiplier
@@ -19,7 +19,7 @@ class Portfolio:
         self.closed_positions: list[ClosedPosition] = []
         self.equity_curve: dict[date, float] = {}
 
-    def open(self, trade: Trade, strategy_name: str) -> Position:
+    def open(self, trade: Trade, strategy_name: str, underlying_price: float = 0.0) -> Position:
         """Record a new position. Adjust cash by net premium minus commission."""
         commission = self._calc_commission(trade)
         self.cash += trade.net_premium - commission
@@ -32,11 +32,19 @@ class Portfolio:
                 commission=commission,
             ),
             strategy_name=strategy_name,
+            entry_underlying_price=underlying_price,
         )
         self.open_positions.append(position)
         return position
 
-    def close(self, position: Position, closing_trade: Trade) -> ClosedPosition:
+    def close(
+        self,
+        position: Position,
+        closing_trade: Trade,
+        exit_reason: ExitReason = ExitReason.EXPIRATION,
+        entry_underlying_price: float = 0.0,
+        exit_underlying_price: float = 0.0,
+    ) -> ClosedPosition:
         """Close a position. Adjust cash. Move to closed_positions."""
         commission = self._calc_commission(closing_trade)
         self.cash += closing_trade.net_premium - commission
@@ -47,6 +55,29 @@ class Portfolio:
         realized_pnl = entry_premium + exit_premium - total_commission
 
         holding_days = (closing_trade.trade_date - position.entry_trade.trade_date).days
+
+        # Compute position sizing
+        contracts = sum(abs(leg.quantity) for leg in position.entry_trade.legs)
+        notional = abs(position.entry_trade.net_premium)
+
+        # Compute net greeks at entry
+        entry_delta: float | None = None
+        entry_theta: float | None = None
+        entry_vega: float | None = None
+        has_greeks = any(leg.contract.delta is not None for leg in position.entry_trade.legs)
+        if has_greeks:
+            entry_delta = sum(
+                leg.quantity * (leg.contract.delta or 0.0)
+                for leg in position.entry_trade.legs
+            )
+            entry_theta = sum(
+                leg.quantity * (leg.contract.theta or 0.0)
+                for leg in position.entry_trade.legs
+            )
+            entry_vega = sum(
+                leg.quantity * (leg.contract.vega or 0.0)
+                for leg in position.entry_trade.legs
+            )
 
         closed = ClosedPosition(
             entry_trade=position.entry_trade,
@@ -59,6 +90,14 @@ class Portfolio:
             strategy_name=position.strategy_name,
             realized_pnl=realized_pnl,
             holding_days=holding_days,
+            exit_reason=exit_reason,
+            entry_underlying_price=entry_underlying_price,
+            exit_underlying_price=exit_underlying_price,
+            contracts=contracts,
+            notional_value=notional,
+            entry_delta=entry_delta,
+            entry_theta=entry_theta,
+            entry_vega=entry_vega,
         )
         self.open_positions.remove(position)
         self.closed_positions.append(closed)

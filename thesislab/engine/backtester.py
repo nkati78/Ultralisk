@@ -65,16 +65,22 @@ class Backtester:
                     continue
                 if not self.filters.can_exit(indicators):
                     continue
-                closing_trade = strategy.should_close(position, chain)
-                if closing_trade is not None:
-                    self.portfolio.close(position, closing_trade)
+                close_signal = strategy.should_close(position, chain)
+                if close_signal is not None:
+                    self.portfolio.close(
+                        position,
+                        close_signal.trade,
+                        exit_reason=close_signal.reason,
+                        entry_underlying_price=position.entry_underlying_price,
+                        exit_underlying_price=chain.underlying_price,
+                    )
 
             # Phase 2: Check entries (only if filters allow)
             if self.filters.can_enter(indicators):
                 for strategy in self.strategies:
                     new_trades = strategy.scan(chain, self.portfolio.open_positions)
                     for trade in new_trades:
-                        self.portfolio.open(trade, strategy.name)
+                        self.portfolio.open(trade, strategy.name, underlying_price=chain.underlying_price)
 
             # Phase 3: Mark to market
             self.portfolio.mark_to_market(current_date, chain)

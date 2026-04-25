@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from thesislab.domain import Leg, OptionType, OptionsChain, Position, Trade
+from thesislab.domain import CloseSignal, ExitReason, Leg, OptionType, OptionsChain, Position, Trade
 from thesislab.strategies.utils import find_current_contract, intrinsic_value
 
 
@@ -127,15 +127,15 @@ class Butterfly:
 
         return [Trade(legs=legs, trade_date=chain.quote_date, net_premium=-net_debit)]
 
-    def should_close(self, position: Position, chain: OptionsChain) -> Trade | None:
+    def should_close(self, position: Position, chain: OptionsChain) -> CloseSignal | None:
         legs = position.entry_trade.legs
         dte = min(leg.contract.dte(chain.quote_date) for leg in legs)
 
         if dte <= 0:
-            return self._close_at_expiration(position, chain)
+            return CloseSignal(self._close_at_expiration(position, chain), ExitReason.EXPIRATION)
 
         if dte <= self.close_at_dte:
-            return self._close_position(position, chain)
+            return CloseSignal(self._close_position(position, chain), ExitReason.DTE_LIMIT)
 
         cost_to_close = self._cost_to_close(position, chain)
         if cost_to_close is None:
@@ -147,9 +147,9 @@ class Butterfly:
         if is_credit:
             profit = entry_premium - cost_to_close
             if entry_premium > 0 and profit / entry_premium >= self.close_at_profit_pct:
-                return self._close_position(position, chain)
+                return CloseSignal(self._close_position(position, chain), ExitReason.PROFIT_TARGET)
             if entry_premium > 0 and cost_to_close / entry_premium >= (1 + self.close_at_loss_pct):
-                return self._close_position(position, chain)
+                return CloseSignal(self._close_position(position, chain), ExitReason.STOP_LOSS)
         else:
             entry_cost = abs(entry_premium)
             if entry_cost == 0:
@@ -159,9 +159,9 @@ class Butterfly:
                 return None
             pnl_pct = (current_val - entry_cost) / entry_cost
             if pnl_pct >= self.close_at_profit_pct:
-                return self._close_position(position, chain)
+                return CloseSignal(self._close_position(position, chain), ExitReason.PROFIT_TARGET)
             if pnl_pct <= -self.close_at_loss_pct:
-                return self._close_position(position, chain)
+                return CloseSignal(self._close_position(position, chain), ExitReason.STOP_LOSS)
 
         return None
 

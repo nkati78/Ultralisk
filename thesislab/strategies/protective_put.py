@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from thesislab.domain import Leg, OptionType, OptionsChain, Position, Trade
+from thesislab.domain import CloseSignal, ExitReason, Leg, OptionType, OptionsChain, Position, Trade
 from thesislab.strategies.utils import find_current_contract, intrinsic_value
 
 
@@ -45,7 +45,7 @@ class ProtectivePut:
         premium = -best.mid * 100  # debit paid
         return [Trade(legs=(leg,), trade_date=chain.quote_date, net_premium=premium)]
 
-    def should_close(self, position: Position, chain: OptionsChain) -> Trade | None:
+    def should_close(self, position: Position, chain: OptionsChain) -> CloseSignal | None:
         entry_leg = position.entry_trade.legs[0]
         contract = entry_leg.contract
         dte = contract.dte(chain.quote_date)
@@ -54,13 +54,13 @@ class ProtectivePut:
 
         if dte <= 0:
             close_price = intrinsic_value(contract, chain.underlying_price) if current is None else current.mid
-            return self._closing_trade(entry_leg, chain, close_price)
+            return CloseSignal(self._closing_trade(entry_leg, chain, close_price), ExitReason.EXPIRATION)
 
         if current is None:
             return None
 
         if dte <= self.close_at_dte:
-            return self._closing_trade(entry_leg, chain, current.mid)
+            return CloseSignal(self._closing_trade(entry_leg, chain, current.mid), ExitReason.DTE_LIMIT)
 
         entry_cost = abs(position.entry_trade.net_premium)
         current_value = current.mid * 100
@@ -69,13 +69,13 @@ class ProtectivePut:
         if entry_cost > 0:
             profit_pct = (current_value - entry_cost) / entry_cost
             if profit_pct >= self.close_at_profit_pct:
-                return self._closing_trade(entry_leg, chain, current.mid)
+                return CloseSignal(self._closing_trade(entry_leg, chain, current.mid), ExitReason.PROFIT_TARGET)
 
         # Stop loss
         if entry_cost > 0:
             loss_pct = (entry_cost - current_value) / entry_cost
             if loss_pct >= self.close_at_loss_pct:
-                return self._closing_trade(entry_leg, chain, current.mid)
+                return CloseSignal(self._closing_trade(entry_leg, chain, current.mid), ExitReason.STOP_LOSS)
 
         return None
 

@@ -10,6 +10,13 @@ class OptionType(Enum):
     PUT = "put"
 
 
+class ExitReason(Enum):
+    PROFIT_TARGET = "profit_target"
+    STOP_LOSS = "stop_loss"
+    DTE_LIMIT = "dte_limit"
+    EXPIRATION = "expiration"
+
+
 @dataclass(frozen=True)
 class OptionContract:
     """A single options contract at a point in time."""
@@ -107,6 +114,14 @@ class Trade:
     commission: float = 0.0
 
 
+@dataclass(frozen=True)
+class CloseSignal:
+    """Bundles a closing trade with the reason for exit."""
+
+    trade: Trade
+    reason: ExitReason
+
+
 @dataclass
 class Position:
     """An open position being tracked by the portfolio."""
@@ -114,6 +129,7 @@ class Position:
     entry_trade: Trade
     strategy_name: str
     tag: str = ""
+    entry_underlying_price: float = 0.0
 
 
 @dataclass
@@ -125,3 +141,12 @@ class ClosedPosition:
     strategy_name: str
     realized_pnl: float
     holding_days: int
+    # Enriched fields
+    exit_reason: ExitReason = ExitReason.EXPIRATION
+    entry_underlying_price: float = 0.0
+    exit_underlying_price: float = 0.0
+    contracts: int = 1
+    notional_value: float = 0.0
+    entry_delta: float | None = None
+    entry_theta: float | None = None
+    entry_vega: float | None = None

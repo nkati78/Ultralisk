@@ -320,6 +320,14 @@ def run_backtest(req: BacktestRequest):
             pnl=pos.realized_pnl,
             days_held=pos.holding_days,
             result="WIN" if pos.realized_pnl > 0 else "LOSS",
+            exit_reason=pos.exit_reason.value,
+            entry_underlying_price=pos.entry_underlying_price,
+            exit_underlying_price=pos.exit_underlying_price,
+            contracts=pos.contracts,
+            notional_value=pos.notional_value,
+            entry_delta=pos.entry_delta,
+            entry_theta=pos.entry_theta,
+            entry_vega=pos.entry_vega,
         ))
 
     indicators = []

@@ -97,6 +97,15 @@ class TradeResult(BaseModel):
     pnl: float
     days_held: int
     result: str
+    # Enriched fields
+    exit_reason: str = "expiration"
+    entry_underlying_price: float = 0.0
+    exit_underlying_price: float = 0.0
+    contracts: int = 1
+    notional_value: float = 0.0
+    entry_delta: float | None = None
+    entry_theta: float | None = None
+    entry_vega: float | None = None
 
 
 class IndicatorSnapshot(BaseModel):

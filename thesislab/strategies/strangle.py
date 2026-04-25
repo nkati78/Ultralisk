@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from thesislab.domain import Leg, OptionType, OptionsChain, Position, Trade
+from thesislab.domain import CloseSignal, ExitReason, Leg, OptionType, OptionsChain, Position, Trade
 from thesislab.strategies.utils import find_current_contract, intrinsic_value
 
 
@@ -75,15 +75,15 @@ class Strangle:
 
         return [Trade(legs=legs, trade_date=chain.quote_date, net_premium=net_premium)]
 
-    def should_close(self, position: Position, chain: OptionsChain) -> Trade | None:
+    def should_close(self, position: Position, chain: OptionsChain) -> CloseSignal | None:
         legs = position.entry_trade.legs
         dte = min(leg.contract.dte(chain.quote_date) for leg in legs)
 
         if dte <= 0:
-            return self._close_at_expiration(position, chain)
+            return CloseSignal(self._close_at_expiration(position, chain), ExitReason.EXPIRATION)
 
         if dte <= self.close_at_dte:
-            return self._close_position(position, chain)
+            return CloseSignal(self._close_position(position, chain), ExitReason.DTE_LIMIT)
 
         current_value = self._current_value(position, chain)
         if current_value is None:
@@ -95,18 +95,18 @@ class Strangle:
                 return None
             profit = entry_credit - current_value
             if profit / entry_credit >= self.close_at_profit_pct:
-                return self._close_position(position, chain)
+                return CloseSignal(self._close_position(position, chain), ExitReason.PROFIT_TARGET)
             if current_value / entry_credit >= (1 + self.close_at_loss_pct):
-                return self._close_position(position, chain)
+                return CloseSignal(self._close_position(position, chain), ExitReason.STOP_LOSS)
         else:
             entry_cost = abs(position.entry_trade.net_premium)
             if entry_cost == 0:
                 return None
             pnl_pct = (current_value - entry_cost) / entry_cost
             if pnl_pct >= self.close_at_profit_pct:
-                return self._close_position(position, chain)
+                return CloseSignal(self._close_position(position, chain), ExitReason.PROFIT_TARGET)
             if pnl_pct <= -self.close_at_loss_pct:
-                return self._close_position(position, chain)
+                return CloseSignal(self._close_position(position, chain), ExitReason.STOP_LOSS)
 
         return None
 

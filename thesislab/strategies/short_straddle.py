@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from thesislab.domain import Leg, OptionType, OptionsChain, Position, Trade
+from thesislab.domain import CloseSignal, ExitReason, Leg, OptionType, OptionsChain, Position, Trade
 from thesislab.strategies.utils import find_current_contract, intrinsic_value
 
 
@@ -48,15 +48,15 @@ class ShortStraddle:
         total_credit = (atm_call.mid + atm_put.mid) * 100
         return [Trade(legs=legs, trade_date=chain.quote_date, net_premium=total_credit)]
 
-    def should_close(self, position: Position, chain: OptionsChain) -> Trade | None:
+    def should_close(self, position: Position, chain: OptionsChain) -> CloseSignal | None:
         legs = position.entry_trade.legs
         dte = min(leg.contract.dte(chain.quote_date) for leg in legs)
 
         if dte <= 0:
-            return self._close_at_expiration(position, chain)
+            return CloseSignal(self._close_at_expiration(position, chain), ExitReason.EXPIRATION)
 
         if dte <= self.close_at_dte:
-            return self._close_position(position, chain)
+            return CloseSignal(self._close_position(position, chain), ExitReason.DTE_LIMIT)
 
         cost_to_close = self._cost_to_close(position, chain)
         if cost_to_close is None:
@@ -68,10 +68,10 @@ class ShortStraddle:
 
         profit = entry_credit - cost_to_close
         if profit / entry_credit >= self.close_at_profit_pct:
-            return self._close_position(position, chain)
+            return CloseSignal(self._close_position(position, chain), ExitReason.PROFIT_TARGET)
 
         if cost_to_close / entry_credit >= (1 + self.close_at_loss_pct):
-            return self._close_position(position, chain)
+            return CloseSignal(self._close_position(position, chain), ExitReason.STOP_LOSS)
 
         return None
 

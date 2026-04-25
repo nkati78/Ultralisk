@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from thesislab.domain import Leg, OptionType, OptionsChain, Position, Trade
+from thesislab.domain import CloseSignal, ExitReason, Leg, OptionType, OptionsChain, Position, Trade
 from thesislab.strategies.utils import find_current_contract, intrinsic_value
 
 
@@ -46,7 +46,7 @@ class CoveredCall:
         premium = best.mid * 100  # credit received
         return [Trade(legs=(leg,), trade_date=chain.quote_date, net_premium=premium)]
 
-    def should_close(self, position: Position, chain: OptionsChain) -> Trade | None:
+    def should_close(self, position: Position, chain: OptionsChain) -> CloseSignal | None:
         entry_leg = position.entry_trade.legs[0]
         contract = entry_leg.contract
 
@@ -57,11 +57,11 @@ class CoveredCall:
         # Close at expiration
         if dte <= 0:
             close_price = intrinsic_value(contract, chain.underlying_price) if current is None else current.mid
-            return self._closing_trade(entry_leg, chain, close_price)
+            return CloseSignal(self._closing_trade(entry_leg, chain, close_price), ExitReason.EXPIRATION)
 
         # Close if DTE threshold reached
         if dte <= self.close_at_dte and current is not None:
-            return self._closing_trade(entry_leg, chain, current.mid)
+            return CloseSignal(self._closing_trade(entry_leg, chain, current.mid), ExitReason.DTE_LIMIT)
 
         # Close if profit target reached
         if current is not None:
@@ -70,7 +70,7 @@ class CoveredCall:
             profit_captured = entry_credit - cost_to_close
             max_profit = entry_credit
             if max_profit > 0 and profit_captured / max_profit >= self.close_at_profit_pct:
-                return self._closing_trade(entry_leg, chain, current.mid)
+                return CloseSignal(self._closing_trade(entry_leg, chain, current.mid), ExitReason.PROFIT_TARGET)
 
         return None
 

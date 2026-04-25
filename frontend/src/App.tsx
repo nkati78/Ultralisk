@@ -188,18 +188,97 @@ const ALL_STRATEGIES = [...SINGLE_LEG, ...STRATEGY_GROUPS.flatMap((g) => g.items
 const STRATEGY_NAME_MAP: Record<string, string> = Object.fromEntries(ALL_STRATEGIES.map((s) => [s.key, s.name]));
 
 const TAG_COLORS: Record<string, string> = {
-  Bullish: 'text-green-400',
+  Bullish: 'text-emerald-400',
   Bearish: 'text-red-400',
-  Neutral: 'text-yellow-400',
+  Neutral: 'text-amber-400',
   Directional: 'text-blue-400',
 };
 
-function StrategyCard({ name, tag, selected, onClick }: {
-  name: string; tag: string; selected: boolean; onClick: () => void;
+/* ── Strategy metadata for hover preview ── */
+interface StrategyMeta {
+  desc: string;
+  legs: { action: 'Buy' | 'Sell'; label: string }[];
+  type: 'credit' | 'debit';
+  risk: 'defined' | 'undefined';
+  points: [number, number][]; // [x, y] pairs — y=50 is breakeven, y<50 profit, y>50 loss
+  strikes: { x: number; label: string }[];
+}
+
+const STRATEGY_META: Record<string, StrategyMeta> = {
+  long_call:           { desc: 'Buy a call to profit from upside moves. Loss limited to premium paid.', legs: [{ action: 'Buy', label: 'call at strike A' }], type: 'debit', risk: 'defined', points: [[5,62],[45,62],[80,18]], strikes: [{x:45,label:'A'}] },
+  long_put:            { desc: 'Buy a put to profit from downside moves. Loss limited to premium paid.', legs: [{ action: 'Buy', label: 'put at strike A' }], type: 'debit', risk: 'defined', points: [[5,18],[45,62],[80,62]], strikes: [{x:45,label:'A'}] },
+  short_call:          { desc: 'Sell a call to collect premium. Profits if price stays below strike.', legs: [{ action: 'Sell', label: 'call at strike A' }], type: 'credit', risk: 'undefined', points: [[5,38],[45,38],[80,82]], strikes: [{x:45,label:'A'}] },
+  short_put:           { desc: 'Sell a put to collect premium. Profits if price stays above strike.', legs: [{ action: 'Sell', label: 'put at strike A' }], type: 'credit', risk: 'undefined', points: [[5,82],[45,38],[80,38]], strikes: [{x:45,label:'A'}] },
+  short_put_spread:    { desc: 'Sell a higher-strike put, buy a lower-strike put. Bullish credit strategy with defined risk.', legs: [{ action: 'Buy', label: 'put at strike A' }, { action: 'Sell', label: 'put at strike B' }], type: 'credit', risk: 'defined', points: [[5,68],[28,68],[55,32],[80,32]], strikes: [{x:28,label:'A'},{x:55,label:'B'}] },
+  short_call_spread:   { desc: 'Sell a lower-strike call, buy a higher-strike call. Bearish credit strategy with defined risk.', legs: [{ action: 'Sell', label: 'call at strike A' }, { action: 'Buy', label: 'call at strike B' }], type: 'credit', risk: 'defined', points: [[5,32],[35,32],[62,68],[80,68]], strikes: [{x:35,label:'A'},{x:62,label:'B'}] },
+  debit_call_spread:   { desc: 'Buy a lower-strike call, sell a higher-strike call. Bullish with capped profit and loss.', legs: [{ action: 'Buy', label: 'call at strike A' }, { action: 'Sell', label: 'call at strike B' }], type: 'debit', risk: 'defined', points: [[5,68],[28,68],[55,32],[80,32]], strikes: [{x:28,label:'A'},{x:55,label:'B'}] },
+  debit_put_spread:    { desc: 'Buy a higher-strike put, sell a lower-strike put. Bearish with capped profit and loss.', legs: [{ action: 'Buy', label: 'put at strike B' }, { action: 'Sell', label: 'put at strike A' }], type: 'debit', risk: 'defined', points: [[5,32],[35,32],[62,68],[80,68]], strikes: [{x:35,label:'A'},{x:62,label:'B'}] },
+  iron_condor:         { desc: 'Sell an OTM put spread and OTM call spread. Profits from low volatility in a range.', legs: [{ action: 'Buy', label: 'put at A' }, { action: 'Sell', label: 'put at B' }, { action: 'Sell', label: 'call at C' }, { action: 'Buy', label: 'call at D' }], type: 'credit', risk: 'defined', points: [[5,68],[18,68],[30,32],[58,32],[70,68],[80,68]], strikes: [{x:18,label:'A'},{x:30,label:'B'},{x:58,label:'C'},{x:70,label:'D'}] },
+  straddle:            { desc: 'Buy ATM call + put at the same strike. Profits from large moves in either direction.', legs: [{ action: 'Buy', label: 'call at strike A' }, { action: 'Buy', label: 'put at strike A' }], type: 'debit', risk: 'defined', points: [[5,15],[42,72],[80,15]], strikes: [{x:42,label:'A'}] },
+  short_straddle:      { desc: 'Sell ATM call + put at the same strike. Profits from low volatility near the strike.', legs: [{ action: 'Sell', label: 'call at strike A' }, { action: 'Sell', label: 'put at strike A' }], type: 'credit', risk: 'undefined', points: [[5,85],[42,28],[80,85]], strikes: [{x:42,label:'A'}] },
+  long_strangle:       { desc: 'Buy OTM call + OTM put at different strikes. Cheaper than a straddle, needs bigger moves.', legs: [{ action: 'Buy', label: 'put at strike A' }, { action: 'Buy', label: 'call at strike B' }], type: 'debit', risk: 'defined', points: [[5,15],[30,66],[55,66],[80,15]], strikes: [{x:30,label:'A'},{x:55,label:'B'}] },
+  short_strangle:      { desc: 'Sell OTM call + OTM put. Wider profit zone than a straddle but unlimited risk.', legs: [{ action: 'Sell', label: 'put at strike A' }, { action: 'Sell', label: 'call at strike B' }], type: 'credit', risk: 'undefined', points: [[5,85],[30,34],[55,34],[80,85]], strikes: [{x:30,label:'A'},{x:55,label:'B'}] },
+  iron_butterfly:      { desc: 'Sell ATM straddle + buy OTM wings. Tighter profit zone than iron condor, higher credit.', legs: [{ action: 'Buy', label: 'put at A' }, { action: 'Sell', label: 'put+call at B' }, { action: 'Buy', label: 'call at C' }], type: 'credit', risk: 'defined', points: [[5,65],[25,65],[42,25],[60,65],[80,65]], strikes: [{x:25,label:'A'},{x:42,label:'B'},{x:60,label:'C'}] },
+  long_call_butterfly: { desc: 'Buy 1 lower call, sell 2 middle calls, buy 1 upper call. Max profit at middle strike.', legs: [{ action: 'Buy', label: 'call at A' }, { action: 'Sell', label: '2 calls at B' }, { action: 'Buy', label: 'call at C' }], type: 'debit', risk: 'defined', points: [[5,62],[25,62],[42,20],[60,62],[80,62]], strikes: [{x:25,label:'A'},{x:42,label:'B'},{x:60,label:'C'}] },
+  long_put_butterfly:  { desc: 'Buy 1 upper put, sell 2 middle puts, buy 1 lower put. Max profit at middle strike.', legs: [{ action: 'Buy', label: 'put at A' }, { action: 'Sell', label: '2 puts at B' }, { action: 'Buy', label: 'put at C' }], type: 'debit', risk: 'defined', points: [[5,62],[25,62],[42,20],[60,62],[80,62]], strikes: [{x:25,label:'A'},{x:42,label:'B'},{x:60,label:'C'}] },
+  calendar_call_spread:{ desc: 'Sell near-term call, buy longer-term call at same strike. Profits from time decay.', legs: [{ action: 'Sell', label: 'front call at A' }, { action: 'Buy', label: 'back call at A' }], type: 'debit', risk: 'defined', points: [[5,62],[25,62],[42,22],[60,62],[80,62]], strikes: [{x:42,label:'A'}] },
+  calendar_put_spread: { desc: 'Sell near-term put, buy longer-term put at same strike. Profits from time decay.', legs: [{ action: 'Sell', label: 'front put at A' }, { action: 'Buy', label: 'back put at A' }], type: 'debit', risk: 'defined', points: [[5,62],[25,62],[42,22],[60,62],[80,62]], strikes: [{x:42,label:'A'}] },
+  covered_call:        { desc: 'Own shares + sell OTM call. Generates income, caps upside.', legs: [{ action: 'Buy', label: '100 shares' }, { action: 'Sell', label: 'call at strike A' }], type: 'credit', risk: 'defined', points: [[5,80],[50,32],[80,32]], strikes: [{x:50,label:'A'}] },
+  protective_put:      { desc: 'Own shares + buy OTM put. Insures downside, keeps upside.', legs: [{ action: 'Buy', label: '100 shares' }, { action: 'Buy', label: 'put at strike A' }], type: 'debit', risk: 'defined', points: [[5,55],[30,55],[80,15]], strikes: [{x:30,label:'A'}] },
+};
+
+const BRK = 50; // breakeven y-coordinate
+
+function PayoffDiagram({ points, strikes }: { points: [number, number][]; strikes: { x: number; label: string }[] }) {
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ');
+  const firstX = points[0][0];
+  const lastX = points[points.length - 1][0];
+  // closed shape from payoff line back along the breakeven line
+  const fillD = `${pathD} L ${lastX} ${BRK} L ${firstX} ${BRK} Z`;
+
+  return (
+    <svg viewBox="-2 0 100 95" width="200" height="110" style={{ overflow: 'visible', flexShrink: 0 }}>
+      <defs>
+        <clipPath id="payoff-profit"><rect x="0" y="0" width="100" height={BRK} /></clipPath>
+        <clipPath id="payoff-loss"><rect x="0" y={BRK} width="100" height={100 - BRK} /></clipPath>
+      </defs>
+
+      {/* Profit fill (green, above breakeven) */}
+      <path d={fillD} fill="rgba(16,185,129,0.15)" clipPath="url(#payoff-profit)" />
+      {/* Loss fill (red, below breakeven) */}
+      <path d={fillD} fill="rgba(248,113,113,0.15)" clipPath="url(#payoff-loss)" />
+
+      {/* Breakeven line */}
+      <line x1={firstX} y1={BRK} x2={lastX} y2={BRK} stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" strokeDasharray="3 2" />
+
+      {/* Payoff line — green in profit zone */}
+      <path d={pathD} fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#payoff-profit)" />
+      {/* Payoff line — red in loss zone */}
+      <path d={pathD} fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" clipPath="url(#payoff-loss)" />
+
+      {/* Strike markers */}
+      {strikes.map((s) => (
+        <g key={s.label}>
+          <line x1={s.x} y1={12} x2={s.x} y2={BRK + 6} stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" strokeDasharray="2 2" />
+          <text x={s.x} y={BRK + 15} textAnchor="middle" fill="#9ca3af" fontSize="8" fontWeight="600">{s.label}</text>
+        </g>
+      ))}
+
+      {/* Axis labels */}
+      <text x={firstX} y={12} fill="#10b981" fontSize="7" fontWeight="600">Profit</text>
+      <text x={firstX} y={BRK + 15} fill="#f87171" fontSize="7" fontWeight="600">Loss</text>
+      <text x={lastX} y={BRK + 15} textAnchor="end" fill="#6b7280" fontSize="6">Stock Price →</text>
+    </svg>
+  );
+}
+
+function StrategyCard({ name, tag, selected, onClick, onHover }: {
+  name: string; tag: string; selected: boolean; onClick: () => void; onHover: () => void;
 }) {
   return (
     <button
       onClick={onClick}
+      onMouseEnter={onHover}
       style={{ minWidth: '11rem', minHeight: '4.25rem' }}
       className={`relative flex flex-col items-center justify-center gap-0.5 px-7 py-4 rounded-md border transition-all text-center ${
         selected
@@ -237,6 +316,7 @@ function App() {
   const [activeSection, setActiveSection] = useState<'setup' | 'results'>('setup');
   const [chartTab, setChartTab] = useState<'equity' | 'price'>('equity');
   const [exitEnabled, setExitEnabled] = useState(false);
+  const [hoveredStrategy, setHoveredStrategy] = useState<string | null>(null);
 
   const [syntheticConfig] = useState<SyntheticDataConfig>({
     start_price: 450, daily_drift: 0.0003, base_iv: 0.25, seed: 42,
@@ -581,14 +661,15 @@ function App() {
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', fontSize: '10px', fontWeight: 700, backgroundColor: hasSelectedStrategy ? 'hsl(var(--accent))' : 'rgba(255,255,255,0.06)', color: hasSelectedStrategy ? 'hsl(var(--primary-foreground))' : '#6b7280' }}>2</span>
                 Strategy
               </h3>
-              <div className="card">
+              <div className="card" onMouseLeave={() => setHoveredStrategy(null)}>
                 <div style={{ marginBottom: '2.5rem' }}>
                   <h3 className="text-lg font-bold text-white text-center" style={{ marginBottom: '1rem' }}>Select a Leg</h3>
                   <div className="flex flex-wrap gap-3 justify-center">
                     {SINGLE_LEG.map((s) => (
                       <StrategyCard key={s.key} name={s.name} tag={s.tag}
                         selected={strategy.type === s.key}
-                        onClick={() => handleStrategyChange(s.key)} />
+                        onClick={() => handleStrategyChange(s.key)}
+                        onHover={() => setHoveredStrategy(s.key)} />
                     ))}
                   </div>
                 </div>
@@ -601,12 +682,47 @@ function App() {
                         {group.items.map((s) => (
                           <StrategyCard key={s.key} name={s.name} tag={s.tag}
                             selected={strategy.type === s.key}
-                            onClick={() => handleStrategyChange(s.key)} />
+                            onClick={() => handleStrategyChange(s.key)}
+                            onHover={() => setHoveredStrategy(s.key)} />
                         ))}
                       </div>
                     ))}
                   </div>
                 </div>
+                {/* Hover preview panel */}
+                {hoveredStrategy && STRATEGY_META[hoveredStrategy] && (() => {
+                  const meta = STRATEGY_META[hoveredStrategy];
+                  const strat = ALL_STRATEGIES.find((s) => s.key === hoveredStrategy);
+                  if (!strat) return null;
+                  return (
+                    <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                      <PayoffDiagram points={meta.points} strikes={meta.strikes} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '4px' }}>
+                          <span className="text-white font-semibold text-sm">{strat.name}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${TAG_COLORS[strat.tag]}`} style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                            {strat.tag}
+                          </span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${meta.type === 'credit' ? 'text-emerald-400' : 'text-blue-400'}`} style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                            {meta.type === 'credit' ? 'Credit' : 'Debit'}
+                          </span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${meta.risk === 'defined' ? 'text-gray-400' : 'text-amber-400'}`} style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                            {meta.risk === 'defined' ? 'Defined Risk' : 'Undefined Risk'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400" style={{ marginBottom: '4px' }}>{meta.desc}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {meta.legs.map((leg, i) => (
+                            <span key={i} className="text-xs font-mono flex items-center gap-1">
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', display: 'inline-block', backgroundColor: leg.action === 'Sell' ? '#f87171' : '#34d399' }} />
+                              <span className="text-gray-400">{leg.action} {leg.label}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

@@ -277,7 +277,7 @@ export function StrategyPanel({ strategy, onChange, exitEnabled, onExitToggle, u
                 snapLabels={(v) => `$${v}`}
                 tip="Dollar distance between short and long strikes. Wider spreads collect more premium but increase max loss."
                 onChange={(v) => set({ spread_width: v })} />
-              <Slider label="Max Positions" value={strategy.max_positions}
+              <Slider label="Quantity" value={strategy.max_positions}
                 min={1} max={20} step={1}
                 snaps={[1, 2, 3, 5, 10]}
                 tip="Maximum number of simultaneous open positions for this strategy."

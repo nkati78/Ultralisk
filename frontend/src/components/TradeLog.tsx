@@ -9,17 +9,17 @@ interface Props {
 type SortKey = keyof TradeResult;
 type SortDir = 'asc' | 'desc';
 
-const COLUMNS: { key: SortKey; label: string; align?: 'right' }[] = [
-  { key: 'number', label: '#' },
-  { key: 'strategy', label: 'Strategy' },
-  { key: 'entry_date', label: 'Entry' },
-  { key: 'exit_date', label: 'Exit' },
-  { key: 'strikes', label: 'Strikes' },
-  { key: 'entry_premium', label: 'Entry Prem.', align: 'right' },
-  { key: 'exit_premium', label: 'Exit Prem.', align: 'right' },
-  { key: 'pnl', label: 'P&L', align: 'right' },
-  { key: 'days_held', label: 'Days', align: 'right' },
-  { key: 'result', label: 'Result' },
+const COLUMNS: { key: SortKey; label: string; align: 'left' | 'center' | 'right' }[] = [
+  { key: 'number', label: '#', align: 'center' },
+  { key: 'strategy', label: 'Strategy', align: 'center' },
+  { key: 'entry_date', label: 'Entry', align: 'center' },
+  { key: 'exit_date', label: 'Exit', align: 'center' },
+  { key: 'strikes', label: 'Strikes', align: 'center' },
+  { key: 'entry_premium', label: 'Entry Prem.', align: 'center' },
+  { key: 'exit_premium', label: 'Exit Prem.', align: 'center' },
+  { key: 'pnl', label: 'P&L', align: 'center' },
+  { key: 'days_held', label: 'Days', align: 'center' },
+  { key: 'result', label: 'Result', align: 'center' },
 ];
 
 const PAGE_SIZE = 20;
@@ -192,9 +192,9 @@ export function TradeLog({ trades }: Props) {
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`th cursor-pointer select-none hover:text-white transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                  className={`th cursor-pointer select-none hover:text-white transition-colors text-${col.align}`}
                 >
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1" style={{ justifyContent: col.align === 'center' ? 'center' : col.align === 'right' ? 'flex-end' : 'flex-start', width: '100%' }}>
                     {col.label}
                     {sortKey === col.key && (
                       <span style={{ fontSize: '10px', opacity: 0.7 }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
@@ -202,7 +202,7 @@ export function TradeLog({ trades }: Props) {
                   </span>
                 </th>
               ))}
-              <th className="th text-right">Cumulative</th>
+              <th className="th text-center">Cumulative</th>
             </tr>
           </thead>
           <tbody>
@@ -218,26 +218,28 @@ export function TradeLog({ trades }: Props) {
                   className="border-b border-[hsl(var(--border))] hover:bg-white/[0.03] cursor-pointer"
                   style={{ backgroundColor: i % 2 === 1 ? 'rgba(255,255,255,0.015)' : undefined }}
                 >
-                  <td className="td font-mono">
-                    <span className="inline-flex items-center gap-1.5">
+                  <td className="td text-center font-mono">
+                    <span className="inline-flex items-center gap-1.5 justify-center">
                       <span style={{ fontSize: '9px', opacity: 0.4, transition: 'transform 0.15s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
                       {t.number}
                     </span>
                   </td>
-                  <td className="td">{t.strategy}</td>
-                  <td className="td font-mono">{t.entry_date}</td>
-                  <td className="td font-mono">{t.exit_date}</td>
-                  <td className="td font-mono text-xs">{t.strikes}</td>
-                  <td className="td text-right font-mono">{formatCurrency(t.entry_premium)}</td>
-                  <td className="td text-right font-mono">{formatCurrency(t.exit_premium)}</td>
-                  <td className="td text-right font-mono" style={{ position: 'relative' }}>
+                  <td className="td text-center">{t.strategy}</td>
+                  <td className="td text-center font-mono">{t.entry_date}</td>
+                  <td className="td text-center font-mono">{t.exit_date}</td>
+                  <td className="td text-center font-mono text-xs">{t.strikes}</td>
+                  <td className="td text-center font-mono">{formatCurrency(t.entry_premium)}</td>
+                  <td className="td text-center font-mono">{formatCurrency(t.exit_premium)}</td>
+                  <td className="td text-center font-mono" style={{ position: 'relative' }}>
                     {/* P&L bar background */}
                     <div style={{
                       position: 'absolute',
                       top: '2px',
                       bottom: '2px',
+                      left: 0,
                       right: 0,
                       width: `${Math.min(pnlBarWidth, 100)}%`,
+                      margin: '0 auto',
                       backgroundColor: t.pnl >= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(248,113,113,0.08)',
                       borderRadius: '2px',
                     }} />
@@ -245,17 +247,17 @@ export function TradeLog({ trades }: Props) {
                       {formatCurrency(t.pnl)}
                     </span>
                   </td>
-                  <td className="td text-right font-mono">{t.days_held}</td>
-                  <td className="td">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                  <td className="td text-center font-mono">{t.days_held}</td>
+                  <td className="td text-center">
+                    <span className={`inline-flex items-center justify-center rounded-full text-xs font-semibold border ${
                       t.result === 'WIN'
                         ? 'border-[hsl(var(--accent))] text-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.1)]'
                         : 'border-[hsl(var(--danger))] text-[hsl(var(--danger))] bg-[hsl(var(--danger)/0.1)]'
-                    }`}>
+                    }`} style={{ width: '52px', height: '24px' }}>
                       {t.result}
                     </span>
                   </td>
-                  <td className={`td text-right font-mono font-semibold ${paginatedRunning[i] >= 0 ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--danger))]'}`}>
+                  <td className={`td text-center font-mono font-semibold ${paginatedRunning[i] >= 0 ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--danger))]'}`}>
                     {formatCurrency(paginatedRunning[i])}
                   </td>
                 </tr>

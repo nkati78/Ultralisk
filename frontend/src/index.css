@@ -88,7 +88,7 @@ body {
 
 .th {
   padding: 0.5rem 0.75rem;
-  text-align: left;
+  text-align: center;
   font-weight: 500;
   color: hsl(var(--muted-foreground));
   font-size: 0.75rem;
@@ -99,6 +99,7 @@ body {
 .td {
   padding: 0.5rem 0.75rem;
   color: hsl(var(--foreground));
+  text-align: center;
 }
 
 /* Accent color utilities */
@@ -119,4 +120,10 @@ input[type="checkbox"] {
 /* Selection color */
 ::selection {
   background-color: hsl(var(--accent) / 0.3);
+}
+
+/* Pulse animation for stale indicator */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }

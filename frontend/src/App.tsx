@@ -412,6 +412,11 @@ function App() {
   const fmtEst = (v: number) => v === Infinity ? 'Unlimited' : formatCurrency(v);
 
   const handleRun = async () => {
+    // Validate required fields
+    if (!ticker.trim()) { setError('Symbol is required'); return; }
+    if (!startDate) { setError('Start Date is required'); return; }
+    if (!endDate) { setError('End Date is required'); return; }
+
     // Switch to loading — show progress bar on setup view
     setActiveSection('setup');
     setIsLoading(true);
@@ -624,18 +629,18 @@ function App() {
               <div className="card">
                 <div className="flex flex-wrap items-end gap-4">
                   <div className="w-24">
-                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Symbol</label>
+                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Symbol <span style={{ color: '#f87171' }}>*</span></label>
                     <input className="input-field !text-lg !font-bold !tracking-widest !text-center" value={ticker}
                       placeholder="SPY"
                       onChange={(e) => handleSetTicker(e.target.value.toUpperCase())} />
                   </div>
                   <div className="w-40">
-                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Start Date</label>
+                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>Start Date <span style={{ color: '#f87171' }}>*</span></label>
                     <input type="date" className="input-field" value={startDate}
                       onChange={(e) => handleSetStartDate(e.target.value)} />
                   </div>
                   <div className="w-40">
-                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>End Date</label>
+                    <label className="block mb-1" style={{ fontSize: '14px', color: '#d1d5db' }}>End Date <span style={{ color: '#f87171' }}>*</span></label>
                     <input type="date" className="input-field" value={endDate}
                       onChange={(e) => handleSetEndDate(e.target.value)} />
                   </div>
@@ -860,10 +865,7 @@ function App() {
 
             {/* Trade Log */}
             <div className="card">
-              <h3 className="card-title">Trade Log</h3>
-              <p className="text-xs text-gray-400 mb-3">
-                Each completed trade with entry/exit dates, P&L, and outcome.
-              </p>
+              <h3 className="card-title" style={{ marginBottom: '0.5rem' }}>Trade Log</h3>
               <TradeLog trades={result.trades} />
             </div>
 
@@ -890,84 +892,76 @@ function App() {
         backgroundColor: 'hsl(220 14% 11% / 0.95)',
         backdropFilter: 'blur(12px)',
         borderTop: '1px solid rgba(255,255,255,0.08)',
-        padding: '16px 28px',
+        padding: '12px 28px',
       }}>
         {hasSelectedStrategy ? (
-          <div style={{ margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              {/* Strategy setup details — hidden when viewing results */}
-              {activeSection !== 'results' && (
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: '1rem', flexWrap: 'nowrap', alignItems: 'flex-end', overflow: 'hidden' }}>
-                  {strategySummary().map((item) => (
-                    <div key={item.label} style={{ textAlign: 'center', flexShrink: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
-                      <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            {/* Summary row — hidden on results view */}
+            {activeSection !== 'results' && (
+              <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'nowrap', alignItems: 'flex-end', justifyContent: 'center' }}>
+                {strategySummary().map((item) => (
+                  <div key={item.label} style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
+                    <p style={{ fontSize: '13px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{item.value}</p>
+                  </div>
+                ))}
+                {filterSummary().map((item) => (
+                  <div key={item.label} style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '10px', color: 'hsl(var(--accent))', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
+                    <p style={{ fontSize: '13px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{item.value}</p>
+                  </div>
+                ))}
+                {tradeEstimate && (
+                  <>
+                    <div style={{ width: '1px', height: '32px', backgroundColor: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{tradeEstimate.isCredit ? 'Credit' : 'Debit'}</p>
+                      <p style={{ fontSize: '13px', color: tradeEstimate.isCredit ? '#10b981' : '#f87171', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(Math.abs(tradeEstimate.creditOrDebit))}</p>
                     </div>
-                  ))}
-                  {filterSummary().map((item) => (
-                    <div key={item.label} style={{ textAlign: 'center', flexShrink: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: '11px', color: 'hsl(var(--accent))', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{item.label}</p>
-                      <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</p>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>BPR</p>
+                      <p style={{ fontSize: '13px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(tradeEstimate.marginRequired)}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-              {/* Divider — only when setup details are shown */}
-              {activeSection !== 'results' && tradeEstimate && (
-                <div style={{ width: '1px', height: '42px', backgroundColor: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
-              )}
-              {/* Per-trade estimates — hidden when viewing results */}
-              {activeSection !== 'results' && tradeEstimate && (
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'nowrap', alignItems: 'flex-end', flexShrink: 0 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{tradeEstimate.isCredit ? 'Credit' : 'Debit'}</p>
-                    <p style={{ fontSize: '15px', color: tradeEstimate.isCredit ? '#10b981' : '#f87171', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(Math.abs(tradeEstimate.creditOrDebit))}</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>BPR</p>
-                    <p style={{ fontSize: '15px', color: 'white', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(tradeEstimate.marginRequired)}</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Max Gain</p>
-                    <p style={{ fontSize: '15px', color: '#10b981', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(tradeEstimate.maxGain)}</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Max Loss</p>
-                    <p style={{ fontSize: '15px', color: '#f87171', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(tradeEstimate.maxLoss)}</p>
-                  </div>
-                </div>
-              )}
-              {/* Spacer to push button right when details are hidden */}
-              {activeSection === 'results' && <div style={{ flex: 1 }} />}
-              {/* Run button + stale warning */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                {isStale && (
-                  <span style={{ fontSize: '11px', color: '#fbbf24', fontWeight: 500 }}>Settings changed</span>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Max Gain</p>
+                      <p style={{ fontSize: '13px', color: '#10b981', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(tradeEstimate.maxGain)}</p>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: '10px', color: '#9ca3af', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Max Loss</p>
+                      <p style={{ fontSize: '13px', color: '#f87171', fontWeight: 600, fontFamily: 'var(--font-mono, ui-monospace, monospace)', whiteSpace: 'nowrap' }}>{fmtEst(tradeEstimate.maxLoss)}</p>
+                    </div>
+                  </>
                 )}
-                <button
-                  onClick={handleRun}
-                  disabled={isLoading}
-                  style={{
-                    padding: '12px 48px', borderRadius: '8px', fontWeight: 700, fontSize: '15px',
-                    backgroundColor: isStale ? '#f59e0b' : 'hsl(var(--accent))',
-                    color: isStale ? '#000' : 'hsl(var(--primary-foreground))',
-                    border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer',
-                    opacity: isLoading ? 0.5 : 1, whiteSpace: 'nowrap',
-                  }}
-                >
-                  {isLoading ? 'Running...' : isStale ? 'Re-run Backtest' : 'Run Backtest'}
-                </button>
               </div>
+            )}
+            {/* Centered Run button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isStale && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#fbbf24', fontWeight: 500 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#f59e0b', animation: 'pulse 2s ease-in-out infinite' }} />
+                  Settings changed
+                </span>
+              )}
+              <button
+                onClick={handleRun}
+                disabled={isLoading}
+                style={{
+                  padding: '10px 52px', borderRadius: '8px', fontWeight: 700, fontSize: '15px',
+                  backgroundColor: isStale ? '#f59e0b' : 'hsl(var(--accent))',
+                  color: isStale ? '#000' : 'hsl(var(--primary-foreground))',
+                  border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer',
+                  opacity: isLoading ? 0.5 : 1, whiteSpace: 'nowrap',
+                  boxShadow: isStale ? '0 0 16px rgba(245,158,11,0.4)' : 'none',
+                  transition: 'background-color 0.2s, box-shadow 0.2s',
+                }}
+              >
+                {isLoading ? 'Running...' : isStale ? 'Re-run Backtest' : 'Run Backtest'}
+              </button>
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <button
-              disabled
-              style={{ padding: '10px 40px', borderRadius: '8px', fontWeight: 700, fontSize: '14px', backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--primary-foreground))', border: 'none', cursor: 'not-allowed', opacity: 0.4 }}
-            >
-              Select a strategy to run
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
+            <span style={{ fontSize: '14px', color: '#6b7280', fontWeight: 500 }}>Select a strategy to get started</span>
           </div>
         )}
       </div>

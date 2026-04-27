@@ -6,6 +6,8 @@ import { PriceChart } from './components/PriceChart';
 import { TradeLog } from './components/TradeLog';
 import { runBacktest } from './lib/api';
 import { formatCurrency, formatPct } from './lib/utils';
+import { useAuth } from './lib/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import type {
   StrategyConfig, AdvancedFilters, SyntheticDataConfig, BacktestResponse,
 } from './types/api';
@@ -302,6 +304,8 @@ function StrategyCard({ name, tag, selected, onClick, onHover }: {
 }
 
 function App() {
+  const { user } = useAuth();
+  const nav = useNavigate();
   const [strategy, setStrategy] = useState<StrategyConfig>({
     type: '', min_dte: 25, max_dte: 45, short_delta: 0.25,
     spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5,
@@ -501,6 +505,24 @@ function App() {
           <img src="/XL logo transparent.png" alt="ThesisLab" className="w-8 h-8" />
           <h1 className="text-xl font-bold text-white tracking-tight">ThesisLab</h1>
         </button>
+        <div style={{ flex: 1 }} />
+        {user && (
+          <button
+            onClick={() => nav('/account')}
+            style={{
+              width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '14px', fontWeight: 700, color: 'hsl(var(--primary-foreground))',
+              backgroundColor: 'rgba(0,0,0,0.2)', border: '2px solid rgba(255,255,255,0.4)',
+              cursor: 'pointer', overflow: 'hidden', padding: 0,
+            }}
+            title="Account"
+          >
+            {user.photoURL
+              ? <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : (user.email?.[0] || 'U').toUpperCase()
+            }
+          </button>
+        )}
       </header>
 
       {/* ── Horizontal step bar ── */}

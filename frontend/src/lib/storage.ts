@@ -1,4 +1,4 @@
-import type { StrategyConfig, AdvancedFilters } from '../types/api';
+import type { StrategyConfig, AdvancedFilters, BacktestResponse } from '../types/api';
 
 export interface SavedBacktest {
   id: string;
@@ -16,6 +16,8 @@ export interface SavedBacktest {
   totalTrades: number;
   winRate: number;
   sharpe: number;
+  // Full results for instant reload
+  result: BacktestResponse;
 }
 
 export interface DefaultSettings {
@@ -33,7 +35,14 @@ const DEFAULTS_KEY = 'thesislab_default_settings';
 export function getSavedBacktests(): SavedBacktest[] {
   try {
     const raw = localStorage.getItem(SAVED_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const all = JSON.parse(raw) as SavedBacktest[];
+    // Migration: drop entries from before result was persisted
+    const valid = all.filter((b) => b && b.result);
+    if (valid.length !== all.length) {
+      localStorage.setItem(SAVED_KEY, JSON.stringify(valid));
+    }
+    return valid;
   } catch { return []; }
 }
 

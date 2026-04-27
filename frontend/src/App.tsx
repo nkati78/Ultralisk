@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { StrategyPanel } from './components/StrategyPanel';
 import { AdvancedSettings } from './components/AdvancedSettings';
 import { EquityChart } from './components/EquityChart';
@@ -7,7 +7,8 @@ import { TradeLog } from './components/TradeLog';
 import { runBacktest } from './lib/api';
 import { formatCurrency, formatPct } from './lib/utils';
 import { useAuth } from './lib/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { saveBacktest } from './lib/storage';
 import type {
   StrategyConfig, AdvancedFilters, SyntheticDataConfig, BacktestResponse,
 } from './types/api';
@@ -306,6 +307,7 @@ function StrategyCard({ name, tag, selected, onClick, onHover }: {
 function App() {
   const { user } = useAuth();
   const nav = useNavigate();
+  const location = useLocation();
   const [strategy, setStrategy] = useState<StrategyConfig>({
     type: '', min_dte: 25, max_dte: 45, short_delta: 0.25,
     spread_width: 5, max_positions: 1, close_at_profit_pct: 0.5,
@@ -321,6 +323,9 @@ function App() {
 
   const [activeSection, setActiveSection] = useState<'setup' | 'results'>('setup');
   const [chartTab, setChartTab] = useState<'equity' | 'price'>('equity');
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [saveMsg, setSaveMsg] = useState('');
   const [exitEnabled, setExitEnabled] = useState(false);
   const [hoveredStrategy, setHoveredStrategy] = useState<string | null>(null);
 
@@ -341,6 +346,28 @@ function App() {
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const markStale = useCallback(() => { if (result) setIsStale(true); }, [result]);
+
+  // Hydrate from a saved backtest passed via navigation state
+  useEffect(() => {
+    const state = location.state as { loadBacktest?: import('./lib/storage').SavedBacktest } | null;
+    if (state?.loadBacktest) {
+      const bt = state.loadBacktest;
+      setTicker(bt.ticker);
+      setStartDate(bt.startDate);
+      setEndDate(bt.endDate);
+      setStartingCash(bt.startingCash);
+      setCommission(bt.commission);
+      setStrategy(bt.strategy);
+      setFilters(bt.filters);
+      setResult(bt.result);
+      setHasSelectedStrategy(!!bt.strategy.type);
+      setActiveSection('results');
+      setIsStale(false);
+      // Clear nav state so a refresh doesn't re-hydrate
+      nav('/', { replace: true, state: null });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleStrategyChange = (key: string) => {
     if (strategy.type === key) {
@@ -791,6 +818,27 @@ function App() {
         {/* ── Results view: Section 5 ── */}
         {activeSection === 'results' && hasResults && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Header: Save button + stale warning */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h2 className="text-lg font-bold text-white" style={{ flex: 1 }}>Backtest Results</h2>
+              {saveMsg && <span className="text-xs text-emerald-400">{saveMsg}</span>}
+              <button
+                onClick={() => { setSaveName(`${ticker} ${strategy.type || 'backtest'} ${new Date().toLocaleDateString()}`); setShowSaveModal(true); }}
+                style={{
+                  padding: '7px 16px', borderRadius: '6px', fontWeight: 600, fontSize: '13px',
+                  backgroundColor: 'rgba(255,255,255,0.05)', color: '#d1d5db',
+                  border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+                Save
+              </button>
+            </div>
             {/* Stale warning */}
             {isStale && (
               <div style={{ textAlign: 'center', padding: '8px', borderRadius: '8px', backgroundColor: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
@@ -987,6 +1035,86 @@ function App() {
           </div>
         )}
       </div>
+
+      {/* ── Save backtest modal ── */}
+      {showSaveModal && result && (
+        <div
+          onClick={() => setShowSaveModal(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="card"
+            style={{ width: '100%', maxWidth: '400px', margin: '0 1rem' }}
+          >
+            <h3 className="card-title" style={{ marginBottom: '0.75rem' }}>Save Backtest</h3>
+            <p className="text-xs text-gray-400" style={{ marginBottom: '0.75rem' }}>Give this run a name so you can find it later in your account.</p>
+            <input
+              autoFocus
+              className="input-field"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              placeholder="e.g. AAPL short put spread Q1"
+              style={{ width: '100%', marginBottom: '1rem' }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && saveName.trim()) {
+                  saveBacktest({
+                    id: `bt_${Date.now()}`,
+                    name: saveName.trim(),
+                    savedAt: new Date().toISOString(),
+                    ticker, startDate, endDate, startingCash, commission,
+                    strategy, filters,
+                    totalReturn: result.total_return_pct,
+                    totalTrades: result.total_trades,
+                    winRate: result.win_rate / 100,
+                    sharpe: result.sharpe_ratio,
+                    result,
+                  });
+                  setShowSaveModal(false);
+                  setSaveMsg('Saved to your account');
+                  setTimeout(() => setSaveMsg(''), 3000);
+                }
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowSaveModal(false)}
+                style={{ padding: '8px 16px', borderRadius: '6px', fontWeight: 600, fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: 'none', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!saveName.trim()}
+                onClick={() => {
+                  saveBacktest({
+                    id: `bt_${Date.now()}`,
+                    name: saveName.trim(),
+                    savedAt: new Date().toISOString(),
+                    ticker, startDate, endDate, startingCash, commission,
+                    strategy, filters,
+                    totalReturn: result.total_return_pct,
+                    totalTrades: result.total_trades,
+                    winRate: result.win_rate / 100,
+                    sharpe: result.sharpe_ratio,
+                    result,
+                  });
+                  setShowSaveModal(false);
+                  setSaveMsg('Saved to your account');
+                  setTimeout(() => setSaveMsg(''), 3000);
+                }}
+                style={{
+                  padding: '8px 20px', borderRadius: '6px', fontWeight: 600, fontSize: '13px',
+                  backgroundColor: saveName.trim() ? 'hsl(var(--accent))' : 'rgba(255,255,255,0.1)',
+                  color: saveName.trim() ? 'hsl(var(--primary-foreground))' : '#6b7280',
+                  border: 'none', cursor: saveName.trim() ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

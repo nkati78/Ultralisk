@@ -4,9 +4,8 @@ import { useAuth } from '../lib/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
   getSavedBacktests, deleteBacktest, type SavedBacktest,
-  getDefaultSettings, saveDefaultSettings, clearDefaultSettings, type DefaultSettings,
+  getDefaultSettings, saveDefaultSettings, clearDefaultSettings,
 } from '../lib/storage';
-import { formatCurrency } from '../lib/utils';
 
 type Tab = 'profile' | 'saved' | 'defaults';
 
@@ -232,7 +231,14 @@ function SavedTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
       {backtests.map((bt) => (
-        <div key={bt.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div
+          key={bt.id}
+          className="card"
+          onClick={() => navigate('/', { state: { loadBacktest: bt } })}
+          style={{ display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', transition: 'background-color 0.15s' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}
+        >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="flex items-center gap-2" style={{ marginBottom: '4px' }}>
               <span className="text-white font-semibold text-sm">{bt.name}</span>
@@ -255,13 +261,13 @@ function SavedTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
             {confirmDelete === bt.id ? (
               <>
                 <button
-                  onClick={() => handleDelete(bt.id)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(bt.id); }}
                   style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, backgroundColor: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)', cursor: 'pointer' }}
                 >
                   Confirm
                 </button>
                 <button
-                  onClick={() => setConfirmDelete(null)}
+                  onClick={(e) => { e.stopPropagation(); setConfirmDelete(null); }}
                   style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, backgroundColor: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: 'none', cursor: 'pointer' }}
                 >
                   Cancel
@@ -269,7 +275,7 @@ function SavedTab({ navigate }: { navigate: ReturnType<typeof useNavigate> }) {
               </>
             ) : (
               <button
-                onClick={() => setConfirmDelete(bt.id)}
+                onClick={(e) => { e.stopPropagation(); setConfirmDelete(bt.id); }}
                 style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, backgroundColor: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: 'none', cursor: 'pointer' }}
               >
                 Delete

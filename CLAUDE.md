@@ -42,7 +42,7 @@ DataFeed -> MarketEvent -> Strategy -> SignalEvent -> Broker -> OrderEvent -> Br
 
 This overrides the global "don't commit unless asked" rule for this repo.
 
-When a task is complete and `pytest` passes, commit and push to `master` (`git push origin master`) without asking. Write commit messages that explain the why. If tests fail, don't commit — report the failure instead.
+When a task is complete and `pytest` passes, commit and push to `main` (`git push origin main`) without asking. Write commit messages that explain the why. If tests fail, don't commit — report the failure instead.
 
 ## Claude model
 

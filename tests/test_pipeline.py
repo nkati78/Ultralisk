@@ -4,7 +4,7 @@ from graphlib import CycleError
 import pytest
 
 from ultralisk.data.dummy import DummyDataProvider
-from ultralisk.pipeline.daily import build_daily_pipeline
+from ultralisk.pipeline.strategy import build_daily_pipeline
 from ultralisk.pipeline.orchestrator import Orchestrator, Stage
 from ultralisk.pipeline.state import PipelineState
 

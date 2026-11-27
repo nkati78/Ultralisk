@@ -19,7 +19,7 @@ pytest                    # run tests (testpaths = tests/)
 
 - `orchestrator.py` — `Stage` (name, fn, dependencies) + `Orchestrator`, which orders stages with `graphlib.TopologicalSorter`.
 - `state.py` — `PipelineState`: mutable bag each stage fills in for one as-of date.
-- `daily.py` — `build_daily_pipeline(provider)` wires the stages from docs/VISION.md: universe → symbology → market_data → (risk_model ‖ data_lake → signal_lake) → combined_signal → audit → rebalance → post_trade.
+- `strategy.py` — the current strategy (signals, combination, rebalance rules). `build_daily_pipeline(provider)` wires the stages from docs/VISION.md: universe → symbology → market_data → (risk_model ‖ data_lake → signal_lake) → combined_signal → audit → rebalance → post_trade.
 - `data/dummy.py` — `DummyDataProvider`: deterministic, point-in-time synthetic universe/symbology/prices (includes a delisted and a late-listed security). Stand-in for real vendors.
 
 ### Event engine (simulation)

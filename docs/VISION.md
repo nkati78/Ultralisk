@@ -16,7 +16,22 @@ A strategy is a tuple:
 (asset universe, signals, signal combination algorithm, objective function, constraints)
 ```
 
-The objective is typically: maximize expected return − expected risk − expected transaction costs, subject to trading, position, and risk constraints.
+| Element | What it is | Pipeline stage |
+|---|---|---|
+| Asset universe | Point-in-time set of tradable securities | `universe` |
+| Signals | Per-security forecasts of returns from repeatable phenomena | `signal_lake` |
+| Signal combination algorithm | How signals blend into one forecast per security | `combined_signal` |
+| Objective function | What the portfolio optimizes (below) | `rebalance` |
+| Constraints | Trading, position, and risk limits | `rebalance` |
+
+The objective:
+
+```
+maximize    E[return] − λ·E[risk] − E[transaction costs]
+subject to  trading, position, and risk constraints
+```
+
+λ is the risk-aversion parameter: how much expected return you'll give up per unit of risk.
 
 ## Data requirements
 

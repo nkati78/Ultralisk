@@ -8,7 +8,7 @@ Event-driven trade engine and framework for quant/algo trading.
 src/ultralisk/
   core/        Event types and the engine event loop
   data/        Data feed interface (market data sources)
-  strategy/    Strategy base class
+  pipeline/    Daily orchestrator, stages, and the current strategy
   backtest/    Simulated broker + backtest runner
   execution/   Live broker/exchange adapter interface
 ```

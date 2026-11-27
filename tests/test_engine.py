@@ -4,10 +4,9 @@ from ultralisk.backtest.broker import SimulatedBroker
 from ultralisk.core.engine import Engine
 from ultralisk.core.events import MarketEvent, OrderSide, SignalEvent
 from ultralisk.data.feed import ListDataFeed
-from ultralisk.strategy.base import Strategy
 
 
-class AlwaysBuyStrategy(Strategy):
+class AlwaysBuyStrategy:
     def on_market_event(self, event: MarketEvent) -> list[SignalEvent]:
         return [SignalEvent(symbol=event.symbol, timestamp=event.timestamp, side=OrderSide.BUY)]
 

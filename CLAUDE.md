@@ -33,7 +33,6 @@ DataFeed -> MarketEvent -> Strategy -> SignalEvent -> Broker -> OrderEvent -> Br
 - `core/events.py` — frozen dataclasses for each event type; `Event` is their union.
 - `core/engine.py` — `Engine` drains the queue, dispatching by `isinstance`. Defines `Protocol`s for `DataFeed`, `Strategy`, `Broker` (structural typing).
 - `data/feed.py` — `DataFeed` ABC + `ListDataFeed` (in-memory, for tests/backtests).
-- `strategy/base.py` — `Strategy` ABC.
 - `backtest/broker.py` — `SimulatedBroker`: immediate fills, no slippage/fees.
 - `execution/broker.py` — `LiveBroker` ABC for real exchange adapters.
 

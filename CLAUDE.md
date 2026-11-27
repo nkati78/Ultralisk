@@ -13,6 +13,17 @@ pytest                    # run tests (testpaths = tests/)
 
 ## Architecture
 
+**The daily pipeline is the core.** The event engine is for simulation/backtesting only.
+
+### Daily pipeline (`src/ultralisk/pipeline/`)
+
+- `orchestrator.py` — `Stage` (name, fn, dependencies) + `Orchestrator`, which orders stages with `graphlib.TopologicalSorter`.
+- `state.py` — `PipelineState`: mutable bag each stage fills in for one as-of date.
+- `daily.py` — `build_daily_pipeline(provider)` wires the stages from docs/VISION.md: universe → symbology → market_data → (risk_model ‖ data_lake → signal_lake) → combined_signal → audit → rebalance → post_trade.
+- `data/dummy.py` — `DummyDataProvider`: deterministic, point-in-time synthetic universe/symbology/prices (includes a delisted and a late-listed security). Stand-in for real vendors.
+
+### Event engine (simulation)
+
 Single event queue in `src/ultralisk/core/engine.py`. Flow:
 
 ```
@@ -39,6 +50,7 @@ DataFeed -> MarketEvent -> Strategy -> SignalEvent -> Broker -> OrderEvent -> Br
 - `SimulatedBroker` sets `fill_price=0.0` — `SignalEvent`/`OrderEvent` carry no price, so the broker has no reference price yet.
 - `Engine` takes a single strategy; multi-strategy is not supported yet.
 - No portfolio/position tracking or risk layer yet.
+- Pipeline: data is dummy and in-memory (no real lakes/storage); risk model is per-security volatility only (no covariance); rebalance is signal/vol scaled to gross 1, not an optimizer; stages run sequentially; rebalance output isn't wired into the event engine.
 
 ## Git workflow
 

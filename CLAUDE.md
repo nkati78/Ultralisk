@@ -2,6 +2,8 @@
 
 Event-driven trade engine and framework for quant/algo trading. Python 3.11+, no runtime dependencies yet.
 
+Vision, target architecture, engineering standards, and research discipline: @docs/VISION.md
+
 ## Commands
 
 ```

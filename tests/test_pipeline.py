@@ -48,12 +48,36 @@ def test_orchestrator_rejects_cycles() -> None:
         Orchestrator([Stage("a", noop, ("b",)), Stage("b", noop, ("a",))])
 
 
-def test_daily_pipeline_produces_normalized_weights_and_exits_delisted_holdings() -> None:
-    state = PipelineState(as_of=date(2025, 6, 1), current_weights={"SEC0007": 0.1})
+AS_OF = date(2025, 6, 1)
 
-    build_daily_pipeline(DummyDataProvider()).run(state)
+
+def test_daily_pipeline_produces_normalized_targets_and_exits_delisted_holdings() -> None:
+    state = PipelineState(as_of=AS_OF, current_weights={"SEC0007": 0.1})
+
+    build_daily_pipeline(DummyDataProvider(), no_trade_band=0.0).run(state)
 
     assert "SEC0007" not in state.target_weights
     assert state.trades["SEC0007"] == pytest.approx(-0.1)
+    assert "SEC0007" not in state.new_weights
+    assert sum(abs(w) for w in state.target_weights.values()) == pytest.approx(1.0)
     assert state.report["gross_exposure"] == pytest.approx(1.0)
     assert state.report["positions"] == 7
+
+
+def test_no_trade_band_skips_small_trades_but_not_exits() -> None:
+    targets = build_daily_pipeline(DummyDataProvider(), no_trade_band=0.0).run(
+        PipelineState(as_of=AS_OF)
+    ).target_weights
+    current = dict(targets)
+    current["SEC0001"] += 0.01  # inside the band
+    current["SEC0002"] += 0.05  # outside the band
+    current["SEC0007"] = 0.001  # delisted: must exit despite being tiny
+
+    state = build_daily_pipeline(DummyDataProvider(), no_trade_band=0.02).run(
+        PipelineState(as_of=AS_OF, current_weights=current)
+    )
+
+    assert state.trades.keys() == {"SEC0002", "SEC0007"}
+    assert state.new_weights["SEC0001"] == current["SEC0001"]
+    assert state.new_weights["SEC0002"] == pytest.approx(targets["SEC0002"])
+    assert "SEC0007" not in state.new_weights

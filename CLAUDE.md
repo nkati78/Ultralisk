@@ -50,7 +50,7 @@ DataFeed -> MarketEvent -> Strategy -> SignalEvent -> Broker -> OrderEvent -> Br
 - `SimulatedBroker` sets `fill_price=0.0` — `SignalEvent`/`OrderEvent` carry no price, so the broker has no reference price yet.
 - `Engine` takes a single strategy; multi-strategy is not supported yet.
 - No portfolio/position tracking or risk layer yet.
-- Pipeline: data is dummy and in-memory (no real lakes/storage); risk model is per-security volatility only (no covariance); rebalance is signal/vol scaled to gross 1, not an optimizer; stages run sequentially; rebalance output isn't wired into the event engine.
+- Pipeline: data is dummy and in-memory (no real lakes/storage); risk model is per-security volatility only (no covariance); rebalance is signal/vol scaled to gross 1 plus a no-trade band, not an optimizer (no λ, no cost model, no position limits); stages run sequentially; rebalance output isn't wired into the event engine.
 
 ## Git workflow
 

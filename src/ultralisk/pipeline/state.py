@@ -18,4 +18,5 @@ class PipelineState:
     combined_signal: dict[str, float] = field(default_factory=dict)
     target_weights: dict[str, float] = field(default_factory=dict)
     trades: dict[str, float] = field(default_factory=dict)
+    new_weights: dict[str, float] = field(default_factory=dict)
     report: dict[str, float] = field(default_factory=dict)

@@ -17,7 +17,10 @@ def _zscore(values: dict[str, float]) -> dict[str, float]:
     return {k: (v - mu) / sd for k, v in values.items()}
 
 
-def build_daily_pipeline(provider: DummyDataProvider) -> Orchestrator:
+def build_daily_pipeline(provider: DummyDataProvider, no_trade_band: float = 0.02) -> Orchestrator:
+    """`no_trade_band`: skip a trade when target and current weight differ by less than this
+    fraction of the book. Holdings that left the universe are always exited."""
+
     def universe(state: PipelineState) -> None:
         state.universe = provider.constituents(state.as_of)
 
@@ -64,19 +67,25 @@ def build_daily_pipeline(provider: DummyDataProvider) -> Orchestrator:
         raw = {sid: s / state.risk[sid] for sid, s in state.combined_signal.items()}
         gross = sum(abs(w) for w in raw.values())
         state.target_weights = {sid: w / gross for sid, w in raw.items()}
-        held = state.target_weights.keys() | state.current_weights.keys()
-        state.trades = {
-            sid: state.target_weights.get(sid, 0.0) - state.current_weights.get(sid, 0.0)
-            for sid in sorted(held)
+        held = sorted(state.target_weights.keys() | state.current_weights.keys())
+        state.trades = {}
+        for sid in held:
+            delta = state.target_weights.get(sid, 0.0) - state.current_weights.get(sid, 0.0)
+            if abs(delta) >= no_trade_band or sid not in state.target_weights:
+                state.trades[sid] = delta
+        state.new_weights = {
+            sid: w
+            for sid in held
+            if (w := state.current_weights.get(sid, 0.0) + state.trades.get(sid, 0.0)) != 0.0
         }
 
     def post_trade(state: PipelineState) -> None:
-        weights = state.target_weights.values()
+        weights = state.new_weights.values()
         state.report = {
             "gross_exposure": sum(abs(w) for w in weights),
             "net_exposure": sum(weights),
             "turnover": sum(abs(t) for t in state.trades.values()),
-            "positions": float(len(state.target_weights)),
+            "positions": float(len(state.new_weights)),
         }
 
     return Orchestrator([
